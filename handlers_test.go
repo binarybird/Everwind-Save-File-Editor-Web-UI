@@ -276,6 +276,36 @@ func TestHandleEditString(t *testing.T) {
 	}
 }
 
+// TestHandleEditObjectPropertyPath confirms an ObjectProperty value (e.g.
+// an inventory slot's BaseData item-asset reference) is editable through
+// the web UI. This is cross-project behavior: gvas decodes ObjectProperty
+// as a plain string when possible, and this handler never special-cases
+// property types — it just works because everything here dispatches on
+// Property.Str, not Type. See skyversesave/gvas's decode.go.
+func TestHandleEditObjectPropertyPath(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	path := "Components[1].Data.Data.Slots[0].Items[0].BaseData"
+	newValue := "/Game/Data/Items/Resources_2500-2999/9999_IDA_TestSwap.9999_IDA_TestSwap"
+
+	req := editRequest(t, id, path, newValue)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), newValue) {
+		t.Error("edit response should show the new object path")
+	}
+
+	sess, _ := s.store.Get(id)
+	p, err := gvas.Lookup(sess.File, path)
+	if err != nil || p.Str == nil || *p.Str != newValue {
+		t.Fatalf("session tree not updated: %+v, err=%v", p, err)
+	}
+}
+
 func TestHandleEditBadValue(t *testing.T) {
 	s := newTestServer(t)
 	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
