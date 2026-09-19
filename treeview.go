@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"skyversesave/gvas"
 )
@@ -151,4 +152,141 @@ func arrayLen(a *gvas.ArrayValue) int {
 	default:
 		return int(a.RawCount)
 	}
+}
+
+const defaultChildrenLimit = 100
+
+// childrenOf resolves path against f (empty path = the file's root list)
+// and returns a renderable, possibly-paginated list of its children. See
+// docs/superpowers/specs/2026-09-19-skyverse-save-web-design.md,
+// "Tree-walking helper".
+func childrenOf(f *gvas.File, path string, offset, limit int) (items []childItem, hasMore bool, err error) {
+	if limit <= 0 {
+		limit = defaultChildrenLimit
+	}
+	props, isContainer, err := propsAt(f, path)
+	if err != nil {
+		return nil, false, err
+	}
+	if isContainer {
+		return structChildren(props, path), false, nil
+	}
+
+	p, err := gvas.Lookup(f, path)
+	if err != nil {
+		return nil, false, err
+	}
+	if p.Array == nil {
+		return nil, false, fmt.Errorf("treeview: path %q is a leaf, not a container", path)
+	}
+	if p.Array.Structs != nil {
+		return arrayStructChildren(p.Array, path), false, nil
+	}
+	return scalarArrayChildren(p.Array, path, offset, limit)
+}
+
+func arrayStructChildren(a *gvas.ArrayValue, basePath string) []childItem {
+	items := make([]childItem, 0, len(a.Structs))
+	for i := range a.Structs {
+		items = append(items, childItem{
+			Label:      fmt.Sprintf("[%d]", i),
+			Type:       "StructProperty",
+			Path:       fmt.Sprintf("%s[%d]", basePath, i),
+			Expandable: true,
+		})
+	}
+	return items
+}
+
+// scalarArrayChildren lists a page of a primitive-typed array's elements.
+// These are display-only: gvas.Lookup cannot resolve a path into a
+// non-struct array element, so scalar array elements are never Editable
+// or Expandable.
+func scalarArrayChildren(a *gvas.ArrayValue, basePath string, offset, limit int) (items []childItem, hasMore bool, err error) {
+	n := arrayLen(a)
+	if offset < 0 || offset > n {
+		return nil, false, fmt.Errorf("treeview: offset %d out of range (array has %d elements)", offset, n)
+	}
+	end := offset + limit
+	if end > n {
+		end = n
+	}
+	for i := offset; i < end; i++ {
+		items = append(items, childItem{
+			Label:   fmt.Sprintf("[%d]", i),
+			Type:    a.InnerType.Value,
+			Path:    fmt.Sprintf("%s[%d]", basePath, i),
+			Preview: scalarArrayElementPreview(a, i),
+		})
+	}
+	return items, end < n, nil
+}
+
+func scalarArrayElementPreview(a *gvas.ArrayValue, i int) string {
+	switch {
+	case a.Bools != nil:
+		return fmt.Sprintf("%v", a.Bools[i])
+	case a.Ints != nil:
+		return fmt.Sprintf("%d", a.Ints[i])
+	case a.Int64s != nil:
+		return fmt.Sprintf("%d", a.Int64s[i])
+	case a.Floats != nil:
+		return fmt.Sprintf("%g", a.Floats[i])
+	case a.Doubles != nil:
+		return fmt.Sprintf("%g", a.Doubles[i])
+	case a.Strings != nil:
+		return a.Strings[i]
+	case a.Bytes != nil:
+		return fmt.Sprintf("%d", a.Bytes[i])
+	default:
+		return fmt.Sprintf("<%d raw bytes>", len(a.RawElements))
+	}
+}
+
+// itemView adds per-request rendering context (which session this belongs
+// to, a stable HTML id, an edit-error message) to a childItem, so
+// templates never need to reach outside their own data (see
+// docs/superpowers/specs/2026-09-19-skyverse-save-web-design.md's
+// "Templates" note on why the design avoids a text/template "dict" helper).
+type itemView struct {
+	childItem
+	SessionID string
+	RowID     string
+	Error     string
+}
+
+// ChildrenView is what children.html.tmpl's "children" template renders.
+type ChildrenView struct {
+	SessionID   string
+	Items       []itemView
+	HasMore     bool
+	LoadMoreURL string
+}
+
+func toItemViews(sessionID string, items []childItem) []itemView {
+	views := make([]itemView, len(items))
+	for i, it := range items {
+		views[i] = itemView{childItem: it, SessionID: sessionID, RowID: rowID(it.Path)}
+	}
+	return views
+}
+
+var rowIDReplacer = strings.NewReplacer(".", "-", "[", "-", "]", "", " ", "-")
+
+// rowID derives an HTML-id-safe string from a property path so each leaf
+// row can carry a stable `id="leaf-<rowID>"` for htmx to target.
+func rowID(path string) string {
+	return rowIDReplacer.Replace(path)
+}
+
+// lastPathSegment returns the trailing field/index label of a path, for
+// display when only the path (not the originating childItem) is on hand
+// (e.g. after an edit-handler error where the property couldn't even be
+// looked up).
+func lastPathSegment(path string) string {
+	base := path
+	if i := strings.LastIndexByte(base, '.'); i >= 0 {
+		base = base[i+1:]
+	}
+	return base
 }
