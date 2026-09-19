@@ -33,6 +33,13 @@ li {
   cursor: pointer;
   font-weight: 600;
 }
+.toggle::before {
+  content: "\25B6";
+  display: inline-block;
+  margin-right: 0.35em;
+  font-size: 0.7em;
+  color: #666;
+}
 .toggle:hover {
   text-decoration: underline;
 }
