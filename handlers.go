@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
+	"io"
+	"log"
 	"net/http"
+
+	"skyversesave/gvas"
 )
 
 // Server holds the shared dependencies every handler needs.
@@ -19,6 +24,7 @@ func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", s.handleIndex)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+	mux.HandleFunc("POST /upload", s.handleUpload)
 	return mux
 }
 
@@ -26,4 +32,56 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if err := s.templates.ExecuteTemplate(w, "index.html.tmpl", nil); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+const maxUploadSize = 50 << 20 // 50MB, generously above the ~1MB real samples
+
+func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		renderError(w, http.StatusUnprocessableEntity, fmt.Errorf("file too large or malformed upload: %w", err))
+		return
+	}
+	file, _, err := r.FormFile("savefile")
+	if err != nil {
+		renderError(w, http.StatusUnprocessableEntity, fmt.Errorf("no file provided: %w", err))
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		renderError(w, http.StatusUnprocessableEntity, fmt.Errorf("reading upload: %w", err))
+		return
+	}
+
+	parsed, err := gvas.Unmarshal(data)
+	if err != nil {
+		renderError(w, http.StatusUnprocessableEntity, fmt.Errorf("this doesn't look like a valid save file: %w", err))
+		return
+	}
+
+	id, err := s.store.Create(parsed)
+	if err != nil {
+		renderError(w, http.StatusInternalServerError, fmt.Errorf("creating session: %w", err))
+		return
+	}
+
+	items, _, err := childrenOf(parsed, "", 0, 0)
+	if err != nil {
+		renderError(w, http.StatusInternalServerError, fmt.Errorf("rendering root: %w", err))
+		return
+	}
+	view := ChildrenView{SessionID: id, Items: toItemViews(id, items)}
+	if err := s.templates.ExecuteTemplate(w, "uploadResponse", view); err != nil {
+		log.Printf("rendering uploadResponse: %v", err)
+	}
+}
+
+// renderError writes a small inline error fragment. Used by every handler
+// for its failure paths — see docs/superpowers/specs/2026-09-19-skyverse-save-web-design.md,
+// "Error handling".
+func renderError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+	fmt.Fprintf(w, `<div class="error">%s</div>`, template.HTMLEscapeString(err.Error()))
 }
