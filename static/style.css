@@ -1,0 +1,55 @@
+body {
+  font-family: system-ui, sans-serif;
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+ul {
+  list-style: none;
+  padding-left: 1.25rem;
+}
+
+li {
+  margin: 0.15rem 0;
+}
+
+.label {
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.type {
+  color: #888;
+  font-size: 0.85em;
+  margin-right: 0.4rem;
+}
+
+.value, .preview {
+  color: #333;
+}
+
+.toggle {
+  cursor: pointer;
+  font-weight: 600;
+}
+.toggle:hover {
+  text-decoration: underline;
+}
+
+.error {
+  color: #b00020;
+  margin-left: 0.5rem;
+}
+
+.leaf form {
+  display: inline;
+}
+.leaf input[type="text"] {
+  width: 16rem;
+}
+
+#download-area a {
+  display: inline-block;
+  margin: 1rem 0;
+}

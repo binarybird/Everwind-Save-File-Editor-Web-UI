@@ -1,0 +1,49 @@
+{{define "children"}}
+<ul>
+  {{range .Items}}
+    {{if .Editable}}
+      {{template "leafRow" .}}
+    {{else if .Expandable}}
+      <li class="node">
+        <span class="toggle"
+              hx-get="/session/{{.SessionID}}/children?path={{.Path}}"
+              hx-target="next .children"
+              hx-swap="innerHTML"
+              hx-trigger="click once">{{.Label}}</span>
+        <span class="type">{{.Type}}</span>
+        {{if .Preview}}<span class="preview">{{.Preview}}</span>{{end}}
+        <div class="children"></div>
+      </li>
+    {{else}}
+      <li class="leaf-readonly">
+        <span class="label">{{.Label}}</span>
+        <span class="type">{{.Type}}</span>
+        <span class="value">{{.Preview}}</span>
+      </li>
+    {{end}}
+  {{end}}
+  {{if .HasMore}}
+    <li class="load-more">
+      <button hx-get="{{.LoadMoreURL}}" hx-target="closest ul" hx-swap="outerHTML">Load more…</button>
+    </li>
+  {{end}}
+</ul>
+{{end}}
+
+{{define "leafRow"}}
+<li class="leaf" id="leaf-{{.RowID}}">
+  <span class="label">{{.Label}}</span>
+  <span class="type">{{.Type}}</span>
+  <form hx-post="/session/{{.SessionID}}/edit" hx-target="#leaf-{{.RowID}}" hx-swap="outerHTML">
+    <input type="hidden" name="path" value="{{.Path}}">
+    <input type="text" name="value" value="{{.Preview}}">
+    <button type="submit">Save</button>
+  </form>
+  {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
+</li>
+{{end}}
+
+{{define "uploadResponse"}}
+<div id="download-area" hx-swap-oob="true"><a href="/session/{{.SessionID}}/download">Download edited save</a></div>
+{{template "children" .}}
+{{end}}

@@ -1,0 +1,20 @@
+{{define "index.html.tmpl"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Skyverse Save Viewer</title>
+  <script src="/static/htmx.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>Skyverse Save Viewer</h1>
+  <form hx-post="/upload" hx-target="#tree" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+    <input type="file" name="savefile" accept=".sav" required>
+    <button type="submit">Upload</button>
+  </form>
+  <div id="download-area"></div>
+  <div id="tree"></div>
+</body>
+</html>
+{{end}}
