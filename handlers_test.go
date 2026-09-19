@@ -7,9 +7,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
+
+	"skyversesave/gvas"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -224,5 +227,81 @@ func multipartUploadRequestBytes(t *testing.T, data []byte) *http.Request {
 	}
 	req := httptest.NewRequest(http.MethodPost, "/upload", &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
+	return req
+}
+
+func TestHandleEditString(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	req := editRequest(t, id, "WorldName", "NewName")
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "NewName") {
+		t.Error("edit response should show the new value")
+	}
+
+	sess, _ := s.store.Get(id)
+	p, err := gvas.Lookup(sess.File, "WorldName")
+	if err != nil || p.Str == nil || *p.Str != "NewName" {
+		t.Fatalf("session tree not updated: %+v, err=%v", p, err)
+	}
+}
+
+func TestHandleEditBadValue(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	req := editRequest(t, id, "bNewGame", "not-a-bool")
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400; body: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "error") {
+		t.Error("expected an inline error message")
+	}
+
+	sess, _ := s.store.Get(id)
+	p, err := gvas.Lookup(sess.File, "bNewGame")
+	if err != nil || p.Bool == nil || *p.Bool != false {
+		t.Fatalf("session tree should be unchanged after a failed edit: %+v, err=%v", p, err)
+	}
+}
+
+func TestHandleEditNonScalarRejected(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	req := editRequest(t, id, "UDSData", "whatever")
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+}
+
+func TestHandleEditUnknownSession(t *testing.T) {
+	s := newTestServer(t)
+	req := editRequest(t, "does-not-exist", "WorldName", "X")
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+func editRequest(t *testing.T, sessionID, path, value string) *http.Request {
+	t.Helper()
+	form := url.Values{"path": {path}, "value": {value}}
+	req := httptest.NewRequest(http.MethodPost, "/session/"+sessionID+"/edit", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return req
 }
