@@ -28,6 +28,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /upload", s.handleUpload)
 	mux.HandleFunc("GET /session/{id}/children", s.handleChildren)
 	mux.HandleFunc("POST /session/{id}/edit", s.handleEdit)
+	mux.HandleFunc("GET /session/{id}/download", s.handleDownload)
 	return mux
 }
 
@@ -157,6 +158,25 @@ func (s *Server) handleEdit(w http.ResponseWriter, r *http.Request) {
 		RowID:     rowID(path),
 		Error:     errMsg,
 	})
+}
+
+func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, ok := s.store.Get(id)
+	if !ok {
+		renderSessionNotFound(w)
+		return
+	}
+
+	data, err := gvas.Marshal(sess.File)
+	if err != nil {
+		renderError(w, http.StatusInternalServerError, fmt.Errorf("encoding save: %w", err))
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="edited.sav"`)
+	w.Write(data)
 }
 
 // applyEdit parses value against p's existing scalar kind and applies it,

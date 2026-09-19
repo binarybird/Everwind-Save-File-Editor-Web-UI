@@ -305,3 +305,89 @@ func editRequest(t *testing.T, sessionID, path, value string) *http.Request {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return req
 }
+
+func TestHandleDownload(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/download", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/octet-stream" {
+		t.Errorf("Content-Type = %q, want application/octet-stream", ct)
+	}
+	if !strings.Contains(rec.Header().Get("Content-Disposition"), "attachment") {
+		t.Error("expected Content-Disposition: attachment")
+	}
+
+	f, err := gvas.Unmarshal(rec.Body.Bytes())
+	if err != nil {
+		t.Fatalf("downloaded bytes don't parse as a save file: %v", err)
+	}
+	if len(f.Root) == 0 {
+		t.Error("downloaded file has no top-level properties")
+	}
+}
+
+func TestHandleDownloadReflectsEdit(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	editReq := editRequest(t, id, "WorldName", "EditedViaWeb")
+	editRec := httptest.NewRecorder()
+	s.routes().ServeHTTP(editRec, editReq)
+	if editRec.Code != http.StatusOK {
+		t.Fatalf("edit failed: status %d, body %s", editRec.Code, editRec.Body.String())
+	}
+
+	original, err := os.ReadFile("testdata/WorldInfo.sav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalFile, err := gvas.Unmarshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	dlReq := httptest.NewRequest(http.MethodGet, "/session/"+id+"/download", nil)
+	dlRec := httptest.NewRecorder()
+	s.routes().ServeHTTP(dlRec, dlReq)
+
+	edited, err := gvas.Unmarshal(dlRec.Body.Bytes())
+	if err != nil {
+		t.Fatalf("downloaded bytes don't parse: %v", err)
+	}
+	name := propByName(edited.Root, "WorldName")
+	if name == nil || *name.Str != "EditedViaWeb" {
+		t.Fatalf("WorldName after edit+download: %+v", name)
+	}
+	version := propByName(edited.Root, "GameVersion")
+	wantVersion := propByName(originalFile.Root, "GameVersion")
+	if version == nil || wantVersion == nil || *version.Str != *wantVersion.Str {
+		t.Errorf("GameVersion changed unexpectedly: got %+v, want %+v", version, wantVersion)
+	}
+}
+
+func propByName(props []*gvas.Property, name string) *gvas.Property {
+	for _, p := range props {
+		if p.Name == name {
+			return p
+		}
+	}
+	return nil
+}
+
+func TestHandleDownloadUnknownSession(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/session/does-not-exist/download", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
