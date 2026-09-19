@@ -126,6 +126,79 @@ func TestHandleUploadTooLarge(t *testing.T) {
 	}
 }
 
+func uploadAndGetSessionID(t *testing.T, s *Server, testdataFile string) string {
+	t.Helper()
+	req := multipartUploadRequest(t, testdataFile)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("upload failed: status %d, body %s", rec.Code, rec.Body.String())
+	}
+	// Extract the session id from the download link href="/session/<id>/download".
+	body := rec.Body.String()
+	const marker = `/session/`
+	i := strings.Index(body, marker)
+	if i < 0 {
+		t.Fatalf("could not find session id in upload response: %s", body)
+	}
+	rest := body[i+len(marker):]
+	j := strings.Index(rest, "/")
+	if j < 0 {
+		t.Fatalf("could not parse session id from: %s", rest)
+	}
+	return rest[:j]
+}
+
+func TestHandleChildrenNestedPath(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/children?path=UDSData.CurrentTime", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"Month", "Day", "TimeOfDay"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("children fragment missing expected field %q", want)
+		}
+	}
+}
+
+func TestHandleChildrenPagination(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+
+	req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/children?path=PlayerMarkerSettings.Filters&limit=3", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Load more") {
+		t.Error("expected a 'Load more' control when more items remain")
+	}
+}
+
+func TestHandleChildrenUnknownSession(t *testing.T) {
+	s := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/session/does-not-exist/children?path=", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "re-upload") {
+		t.Error("expected a 'please re-upload' message for an unknown session")
+	}
+}
+
 func multipartUploadRequest(t *testing.T, path string) *http.Request {
 	t.Helper()
 	data, err := os.ReadFile(path)

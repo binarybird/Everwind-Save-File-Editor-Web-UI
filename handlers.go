@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 
 	"skyversesave/gvas"
 )
@@ -25,6 +26,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /", s.handleIndex)
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("POST /upload", s.handleUpload)
+	mux.HandleFunc("GET /session/{id}/children", s.handleChildren)
 	return mux
 }
 
@@ -76,6 +78,62 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 	if err := s.templates.ExecuteTemplate(w, "uploadResponse", view); err != nil {
 		log.Printf("rendering uploadResponse: %v", err)
 	}
+}
+
+func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, ok := s.store.Get(id)
+	if !ok {
+		renderSessionNotFound(w)
+		return
+	}
+
+	path := r.URL.Query().Get("path")
+	offset := queryInt(r, "offset", 0)
+	limit := queryInt(r, "limit", 0)
+
+	items, hasMore, err := childrenOf(sess.File, path, offset, limit)
+	if err != nil {
+		renderError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	view := ChildrenView{SessionID: id, Items: toItemViews(id, items)}
+	if hasMore {
+		nextOffset := offset + limit
+		if limit <= 0 {
+			nextOffset = offset + defaultChildrenLimit
+		}
+		view.HasMore = true
+		view.LoadMoreURL = fmt.Sprintf("/session/%s/children?path=%s&offset=%d&limit=%d", id, path, nextOffset, limitOrDefault(limit))
+	}
+
+	if err := s.templates.ExecuteTemplate(w, "children", view); err != nil {
+		log.Printf("rendering children: %v", err)
+	}
+}
+
+func queryInt(r *http.Request, key string, def int) int {
+	v := r.URL.Query().Get(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+func limitOrDefault(limit int) int {
+	if limit <= 0 {
+		return defaultChildrenLimit
+	}
+	return limit
+}
+
+func renderSessionNotFound(w http.ResponseWriter) {
+	renderError(w, http.StatusNotFound, fmt.Errorf("session not found or expired — please re-upload your save file"))
 }
 
 // renderError writes a small inline error fragment. Used by every handler
