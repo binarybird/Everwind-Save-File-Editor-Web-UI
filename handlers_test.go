@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"mime/multipart"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	"skyversesave/gvas"
@@ -185,6 +187,28 @@ func TestHandleChildrenPagination(t *testing.T) {
 	body := rec.Body.String()
 	if !strings.Contains(body, "Load more") {
 		t.Error("expected a 'Load more' control when more items remain")
+	}
+}
+
+// TestHandleChildrenStructArrayElement is the handler-level regression test
+// for the finding that GET /session/{id}/children?path=Components[0]
+// returned 400 (gvas.Lookup refuses to resolve a path that ends bare on an
+// array index) even though the corresponding path=Components listing (each
+// item Expandable with Path "Components[0]" etc.) works fine.
+func TestHandleChildrenStructArrayElement(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+
+	req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/children?path=Components[0]", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "ComponentName") {
+		t.Error("children fragment missing expected field ComponentName")
 	}
 }
 
@@ -379,6 +403,46 @@ func propByName(props []*gvas.Property, name string) *gvas.Property {
 		}
 	}
 	return nil
+}
+
+// TestConcurrentEditAndDownloadNoDataRace is the regression test for the
+// finding that a session's *gvas.File tree has no synchronization once a
+// handler obtains it via SessionStore.Get: handleEdit's writes (via
+// gvas.Property.Set*) race with handleDownload's reads (via gvas.Marshal
+// walking the same tree) and handleChildren's reads (via childrenOf), all
+// against the SAME session id. Run with `go test -race` — that's what
+// surfaces the race; a plain `go test` run won't flag it.
+func TestConcurrentEditAndDownloadNoDataRace(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+
+	const goroutines = 6
+	const itersEach = 3 // ~18 total ops across edit/download/children, kept modest for speed
+
+	var wg sync.WaitGroup
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func(g int) {
+			defer wg.Done()
+			for i := 0; i < itersEach; i++ {
+				switch g % 3 {
+				case 0:
+					req := editRequest(t, id, "WorldName", fmt.Sprintf("race-%d-%d", g, i))
+					rec := httptest.NewRecorder()
+					s.routes().ServeHTTP(rec, req)
+				case 1:
+					req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/download", nil)
+					rec := httptest.NewRecorder()
+					s.routes().ServeHTTP(rec, req)
+				default:
+					req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/children?path=", nil)
+					rec := httptest.NewRecorder()
+					s.routes().ServeHTTP(rec, req)
+				}
+			}
+		}(g)
+	}
+	wg.Wait()
 }
 
 func TestHandleDownloadUnknownSession(t *testing.T) {

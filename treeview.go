@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"skyversesave/gvas"
@@ -39,6 +40,26 @@ func propsAt(f *gvas.File, path string) (props []*gvas.Property, isContainer boo
 	if path == "" {
 		return f.Root, true, nil
 	}
+	// gvas.Lookup intentionally refuses to resolve a path that ends bare on
+	// an array index (e.g. "Components[0]") — it always resolves to a
+	// single *gvas.Property, and there's no single Property for a struct
+	// array element itself, only for its fields. Handle that last "[N]"
+	// step ourselves: resolve the parent path (which does NOT end in a
+	// bare index, so gvas.Lookup handles it fine, at any nesting depth),
+	// then index directly into its Structs.
+	if parent, index, ok := splitTrailingIndex(path); ok {
+		parentProp, err := gvas.Lookup(f, parent)
+		if err != nil {
+			return nil, false, err
+		}
+		if parentProp.Array == nil || parentProp.Array.Structs == nil {
+			return nil, false, fmt.Errorf("treeview: path %q: [%d] used on a non-struct-array", path, index)
+		}
+		if index < 0 || index >= len(parentProp.Array.Structs) {
+			return nil, false, fmt.Errorf("treeview: path %q: index %d out of range (array has %d elements)", path, index, len(parentProp.Array.Structs))
+		}
+		return parentProp.Array.Structs[index], true, nil
+	}
 	p, err := gvas.Lookup(f, path)
 	if err != nil {
 		return nil, false, err
@@ -50,6 +71,27 @@ func propsAt(f *gvas.File, path string) (props []*gvas.Property, isContainer boo
 		return p.NestedFile.Root, true, nil
 	}
 	return nil, false, nil
+}
+
+// splitTrailingIndex splits path into everything before a trailing "[N]"
+// and the integer N, for the one case gvas.Lookup can't resolve on its own:
+// a path that ends bare on a struct-array index. Returns ok=false (and
+// leaves parent/index unset) for any path that doesn't end in "[<digits>]" —
+// callers fall through to the normal gvas.Lookup-based resolution.
+func splitTrailingIndex(path string) (parent string, index int, ok bool) {
+	if path == "" || path[len(path)-1] != ']' {
+		return "", 0, false
+	}
+	open := strings.LastIndexByte(path, '[')
+	if open < 0 {
+		return "", 0, false
+	}
+	digits := path[open+1 : len(path)-1]
+	n, err := strconv.Atoi(digits)
+	if err != nil || n < 0 {
+		return "", 0, false
+	}
+	return path[:open], n, true
 }
 
 func structChildren(props []*gvas.Property, basePath string) []childItem {

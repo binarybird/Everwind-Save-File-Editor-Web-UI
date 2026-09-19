@@ -11,8 +11,15 @@ import (
 // Session holds one uploaded save's decoded tree for the life of the
 // server process. See docs/superpowers/specs/2026-09-19-skyverse-save-web-design.md,
 // "Session model" — no persistence, no TTL, in-memory only.
+//
+// mu guards File itself: SessionStore's own mutex only protects the id ->
+// *Session map, not what a handler does with a *Session once it has one.
+// Handlers that mutate File (handleEdit) must hold mu for writing; handlers
+// that only read it (handleChildren, handleDownload) must hold it for
+// reading — see handlers.go.
 type Session struct {
 	File *gvas.File
+	mu   sync.RWMutex
 }
 
 // SessionStore is a concurrency-safe in-memory map of session id -> Session.

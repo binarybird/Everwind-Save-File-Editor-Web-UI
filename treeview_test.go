@@ -201,6 +201,82 @@ func TestChildrenOfLeafErrors(t *testing.T) {
 	}
 }
 
+// TestChildrenOfStructArrayElement is the regression test for the finding
+// that clicking into a single struct-array element (e.g. "Components[0]",
+// the natural next step after listing "Components") returned a 400 because
+// gvas.Lookup intentionally refuses to resolve a path that ends bare on an
+// array index. propsAt must special-case a trailing "[N]" itself.
+func TestChildrenOfStructArrayElement(t *testing.T) {
+	f := mustUnmarshal(t, "Player_Local.sav")
+	items, hasMore, err := childrenOf(f, "Components[0]", 0, 0)
+	if err != nil {
+		t.Fatalf("childrenOf(Components[0]): %v", err)
+	}
+	if hasMore {
+		t.Error("a struct's children should never report hasMore")
+	}
+	if len(items) == 0 {
+		t.Fatal("expected at least one field under Components[0]")
+	}
+	// ComponentSaveData's real fields, per docs/FORMAT.md in the sibling
+	// skyverse-save-tool repo: "Data" (a StructProperty) and "ComponentName"
+	// (a StrProperty).
+	data := findItem(items, "Data")
+	if data == nil {
+		t.Fatal("expected a Data item under Components[0]")
+	}
+	if !data.Expandable {
+		t.Error("Components[0].Data is a StructProperty, should be Expandable")
+	}
+	if data.Path != "Components[0].Data" {
+		t.Errorf("Data path = %q, want %q", data.Path, "Components[0].Data")
+	}
+	name := findItem(items, "ComponentName")
+	if name == nil {
+		t.Fatal("expected a ComponentName item under Components[0]")
+	}
+	if !name.Editable || name.Expandable {
+		t.Errorf("ComponentName: got Editable=%v Expandable=%v, want Editable=true Expandable=false", name.Editable, name.Expandable)
+	}
+}
+
+// TestChildrenOfStructArrayElementNested confirms the trailing-[N] handling
+// works when the array index isn't the first segment of the path either —
+// propsAt resolves the parent path via gvas.Lookup, which already handles
+// arbitrary nesting.
+func TestChildrenOfStructArrayElementNested(t *testing.T) {
+	f := mustUnmarshal(t, "Player_Local.sav")
+	// Components[0].Data is itself a StructProperty (UObjectSaveData), not
+	// an array, so nest one level further by going through Components[0]
+	// first and confirming the same trailing-index logic applies again at
+	// the top level for a second element.
+	items, _, err := childrenOf(f, "Components[1]", 0, 0)
+	if err != nil {
+		t.Fatalf("childrenOf(Components[1]): %v", err)
+	}
+	if findItem(items, "ComponentName") == nil {
+		t.Error("expected a ComponentName item under Components[1]")
+	}
+}
+
+func TestChildrenOfStructArrayElementOutOfRange(t *testing.T) {
+	f := mustUnmarshal(t, "Player_Local.sav")
+	if _, _, err := childrenOf(f, "Components[999]", 0, 0); err == nil {
+		t.Fatal("expected an error for an out-of-range struct array index")
+	}
+}
+
+func TestChildrenOfScalarArrayElementIsNotAContainer(t *testing.T) {
+	// PlayerMarkerSettings.Filters is an ArrayProperty<BoolProperty> — a
+	// trailing [N] on it must NOT be mistaken for a struct-array element
+	// (no Structs to index into), so it should still fall through to a
+	// clear error rather than a false-positive container match.
+	f := mustUnmarshal(t, "Player_Local.sav")
+	if _, _, err := childrenOf(f, "PlayerMarkerSettings.Filters[0]", 0, 0); err == nil {
+		t.Fatal("expected an error requesting children of a scalar array element")
+	}
+}
+
 func TestScalarArrayChildrenPagination(t *testing.T) {
 	// PlayerMarkerSettings.Filters is an ArrayProperty<BoolProperty> with
 	// 8 elements in Player_Local.sav (see docs/FORMAT.md).

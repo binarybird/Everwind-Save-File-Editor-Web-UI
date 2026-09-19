@@ -94,7 +94,9 @@ func (s *Server) handleChildren(w http.ResponseWriter, r *http.Request) {
 	offset := queryInt(r, "offset", 0)
 	limit := queryInt(r, "limit", 0)
 
+	sess.mu.RLock()
 	items, hasMore, err := childrenOf(sess.File, path, offset, limit)
+	sess.mu.RUnlock() // release before rendering — only the tree read needs the lock
 	if err != nil {
 		renderError(w, http.StatusBadRequest, err)
 		return
@@ -129,6 +131,9 @@ func (s *Server) handleEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.FormValue("path")
 	value := r.FormValue("value")
+
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
 
 	p, err := gvas.Lookup(sess.File, path)
 	if err != nil {
@@ -168,7 +173,9 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sess.mu.RLock()
 	data, err := gvas.Marshal(sess.File)
+	sess.mu.RUnlock()
 	if err != nil {
 		renderError(w, http.StatusInternalServerError, fmt.Errorf("encoding save: %w", err))
 		return
