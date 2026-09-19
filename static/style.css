@@ -32,6 +32,10 @@ li {
 .toggle {
   cursor: pointer;
   font-weight: 600;
+  list-style: none;
+}
+.toggle::-webkit-details-marker {
+  display: none;
 }
 .toggle::before {
   content: "\25B6";
@@ -39,6 +43,10 @@ li {
   margin-right: 0.35em;
   font-size: 0.7em;
   color: #666;
+  transition: transform 0.1s ease;
+}
+details[open] > .toggle::before {
+  transform: rotate(90deg);
 }
 .toggle:hover {
   text-decoration: underline;

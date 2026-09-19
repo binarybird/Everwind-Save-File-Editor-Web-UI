@@ -5,14 +5,16 @@
       {{template "leafRow" .}}
     {{else if .Expandable}}
       <li class="node">
-        <span class="toggle"
-              hx-get="/session/{{.SessionID}}/children?path={{.Path}}"
-              hx-target="next .children"
-              hx-swap="innerHTML"
-              hx-trigger="click once">{{.Label}}</span>
-        <span class="type">{{.Type}}</span>
-        {{if .Preview}}<span class="preview">{{.Preview}}</span>{{end}}
-        <div class="children"></div>
+        <details>
+          <summary class="toggle"
+                hx-get="/session/{{.SessionID}}/children?path={{.Path}}"
+                hx-target="next .children"
+                hx-swap="innerHTML"
+                hx-trigger="toggle once">{{.Label}}</summary>
+          <span class="type">{{.Type}}</span>
+          {{if .Preview}}<span class="preview">{{.Preview}}</span>{{end}}
+          <div class="children"></div>
+        </details>
       </li>
     {{else}}
       <li class="leaf-readonly">
