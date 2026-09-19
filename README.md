@@ -9,8 +9,13 @@ design.
 ## Requirements
 
 This module depends on `skyversesave` via a local `replace` directive
-pointing at `../skyverse-save-tool` — both projects must be checked out
-as siblings on disk.
+in `go.mod` pointing at wherever `skyverse-save-tool` is checked out on
+disk. Currently that line reads:
+
+    replace skyversesave => /home/binarybird/Desktop/analysis/skyverse-save-tool
+
+If you check out `skyverse-save-tool` at a different path (or on a
+different machine), update that `replace` line in `go.mod` to match.
 
 ## Build and run
 
