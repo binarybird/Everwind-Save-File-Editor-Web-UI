@@ -68,3 +68,31 @@ details[open] > .toggle::before {
   display: inline-block;
   margin: 1rem 0;
 }
+
+.upload-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 14rem;
+  border: 3px dashed #bbb;
+  border-radius: 12px;
+  padding: 2rem;
+  margin: 1rem 0;
+  text-align: center;
+  color: #666;
+  font-size: 1.1rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.upload-zone.dragover {
+  border-color: #4a90d9;
+  background-color: #f0f7ff;
+  color: #2c6cb0;
+}
+.upload-zone input[type="file"] {
+  display: none;
+}
+.browse-link {
+  color: #4a90d9;
+  text-decoration: underline;
+  cursor: pointer;
+}

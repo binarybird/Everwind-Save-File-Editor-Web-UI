@@ -6,11 +6,15 @@
   <title>Skyverse Save Viewer</title>
   <script src="/static/htmx.min.js"></script>
   <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
 </head>
 <body>
   <h1>Skyverse Save Viewer</h1>
-  <form hx-post="/upload" hx-target="#tree" hx-swap="innerHTML" hx-encoding="multipart/form-data">
-    <input type="file" name="savefile" accept=".sav" required>
+  <form id="upload-form" hx-post="/upload" hx-target="#tree" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+    <div id="upload-zone" class="upload-zone">
+      <p>Drop a <code>.sav</code> file here, or <label for="savefile" class="browse-link">browse…</label></p>
+      <input type="file" id="savefile" name="savefile" accept=".sav" required>
+    </div>
     <button type="submit">Upload</button>
   </form>
   <div id="download-area"></div>
