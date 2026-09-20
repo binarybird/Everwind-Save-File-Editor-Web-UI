@@ -23,9 +23,14 @@ different machine), update that `replace` line in `go.mod` to match.
     ./skyverseweb -addr :8080
 
 Then open http://localhost:8080 in a browser, upload a `.sav` file,
-browse the property tree (click a node to expand it), edit a scalar
-value inline and press Save, then click "Download edited save" to get
-the result.
+browse the property tree (click a node to expand it) or the Inventory
+tab's icon grid, edit a value, then download the result. Two downloads
+are offered: "Download edited save" (the `.sav` itself) and "Download
+.meta" (its checksum sidecar). **The game checks the `.meta` sidecar
+against its `.sav` on load and silently reverts to its own backup if
+they don't match** — download both and place them together (with their
+original names, which this tool preserves) in the save directory, or
+the game will discard your edit without any visible error.
 
 Everything (including the vendored htmx script) is embedded in the
 binary — no internet access is required at runtime.
