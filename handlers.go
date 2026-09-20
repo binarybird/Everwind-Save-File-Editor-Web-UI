@@ -275,19 +275,28 @@ func (s *Server) handleSlotRemove(w http.ResponseWriter, r *http.Request) {
 
 	itemsProp, err := gvas.Lookup(sess.File, slotPath+".Items")
 	if err != nil {
+		// slotPath itself doesn't resolve at all (only reachable via a
+		// tampered request, never through the normal UI) -- there's no
+		// slot to re-render, so this is the one case that still falls
+		// back to a bare error fragment.
 		renderError(w, http.StatusBadRequest, fmt.Errorf("resolving slot: %w", err))
 		return
 	}
 	if itemsProp.Array == nil || len(itemsProp.Array.Structs) == 0 {
-		renderError(w, http.StatusBadRequest, fmt.Errorf("slot is already empty"))
+		// slotPath resolves fine, so re-render the real slot (with its
+		// Error set) rather than a bare error div -- this response goes
+		// to the same hx-target="#slot-{rowID}" hx-swap="outerHTML" the
+		// success path uses, so it must keep the same "whole slot"
+		// shape or it would replace the slot with just an error message.
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusBadRequest, "slot is already empty")
 		return
 	}
 	if err := itemsProp.RemoveStructElement(0); err != nil {
-		renderError(w, http.StatusInternalServerError, err)
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := setSlotQuantity(sess.File, slotPath, 0); err != nil {
-		renderError(w, http.StatusInternalServerError, err)
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusInternalServerError, err.Error())
 		return
 	}
 	s.renderSlot(w, sess.File, id, slotPath, http.StatusOK, "")
@@ -310,34 +319,40 @@ func (s *Server) handleSlotAdd(w http.ResponseWriter, r *http.Request) {
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
-	if _, ok := s.itemCatalog[itemPath]; !ok {
-		renderError(w, http.StatusBadRequest, fmt.Errorf("unknown item %q", itemPath))
-		return
-	}
+	// Resolve slotPath first (regardless of itemPath validity) so every
+	// failure from here on can re-render the real slot with its Error
+	// set, matching the hx-target="#slot-{rowID}" hx-swap="outerHTML"
+	// every add form already uses -- a bare error fragment swapped in
+	// there would replace the whole slot instead of showing the error
+	// alongside it.
 	itemsProp, err := gvas.Lookup(sess.File, slotPath+".Items")
 	if err != nil {
 		renderError(w, http.StatusBadRequest, fmt.Errorf("resolving slot: %w", err))
 		return
 	}
+	if _, ok := s.itemCatalog[itemPath]; !ok {
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusBadRequest, fmt.Sprintf("unknown item %q", itemPath))
+		return
+	}
 	if itemsProp.Array == nil {
-		renderError(w, http.StatusInternalServerError, fmt.Errorf("slot %q has no Items array", slotPath))
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusInternalServerError, fmt.Sprintf("slot %q has no Items array", slotPath))
 		return
 	}
 	if len(itemsProp.Array.Structs) != 0 {
-		renderError(w, http.StatusBadRequest, fmt.Errorf("slot already has an item"))
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusBadRequest, "slot already has an item")
 		return
 	}
 	newItem, err := buildNewItem(sess.File, itemPath)
 	if err != nil {
-		renderError(w, http.StatusInternalServerError, err)
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := itemsProp.AppendStructElement(newItem); err != nil {
-		renderError(w, http.StatusInternalServerError, err)
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if err := setSlotQuantity(sess.File, slotPath, 1); err != nil {
-		renderError(w, http.StatusInternalServerError, err)
+		s.renderSlot(w, sess.File, id, slotPath, http.StatusInternalServerError, err.Error())
 		return
 	}
 	s.renderSlot(w, sess.File, id, slotPath, http.StatusOK, "")

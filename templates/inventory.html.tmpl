@@ -34,17 +34,21 @@
      data-quantity="{{.Quantity}}"
      data-occupied="{{.Occupied}}">
   {{if .Label}}<span class="slot-label">{{.Label}}</span>{{end}}
+  <div class="slot-inner">
+    {{if .Occupied}}
+      <button type="button" class="slot-click-target" title="Click to edit — {{.Name}}">
+        <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}placeholder.png{{end}}" alt="{{.Name}}" onerror="window.__iconMissing(this)">
+      </button>
+      {{if gt .Quantity 1}}<span class="slot-qty">{{.Quantity}}</span>{{end}}
+    {{else}}
+      <button type="button" class="slot-click-target slot-add-btn" title="Add an item to this slot">+</button>
+    {{end}}
+  </div>
   {{if .Occupied}}
-    <button type="button" class="slot-click-target" title="Click to edit — {{.Name}}">
-      <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}placeholder.png{{end}}" alt="{{.Name}}" onerror="window.__iconMissing(this)">
-    </button>
-    {{if gt .Quantity 1}}<span class="slot-qty">{{.Quantity}}</span>{{end}}
     <form class="slot-remove-form" hx-post="/session/{{.SessionID}}/slot/remove" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML" hx-confirm="Remove this item from the slot?">
       <input type="hidden" name="slotPath" value="{{.SlotPath}}">
       <button type="submit" class="slot-remove-btn" title="Remove item">×</button>
     </form>
-  {{else}}
-    <button type="button" class="slot-click-target slot-add-btn" title="Add an item to this slot">+</button>
   {{end}}
   {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
 </div>

@@ -4,19 +4,28 @@
   // Last-resort fallback if an <img> (including placeholder.png itself)
   // fails to load for some reason -- not the normal path. The normal
   // "no icon extracted for this item" case already renders the real
-  // placeholder.png image via the template, not this.
+  // placeholder.png image via the template, not this. Picks the
+  // fallback's size/class to match whichever <img> failed (the small
+  // grid icon vs. the larger modal preview).
   function iconMissing(img) {
     var span = document.createElement("span");
-    span.className = "slot-icon-missing";
+    span.className = img.classList.contains("modal-icon") ? "modal-icon-missing" : "slot-icon-missing";
     span.textContent = "?";
     img.replaceWith(span);
   }
   window.__iconMissing = iconMissing;
 
+  // esc HTML-escapes s for safe interpolation into both element text and
+  // double-quoted attribute values. Values here (item names, object
+  // paths) come from data-* attributes sourced from the save file, so a
+  // crafted BaseData string is a real input, not just a theoretical one
+  // -- textContent alone only escapes &/</>, not quote characters, which
+  // would otherwise let such a value break out of an attribute like
+  // value="...".
   function esc(s) {
     var d = document.createElement("div");
     d.textContent = s == null ? "" : s;
-    return d.innerHTML;
+    return d.innerHTML.replace(/"/g, "&#34;").replace(/'/g, "&#39;");
   }
 
   function iconMarkup(icon, name) {

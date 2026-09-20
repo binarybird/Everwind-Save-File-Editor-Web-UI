@@ -56,13 +56,19 @@ details[open] > .toggle::before {
   color: #b00020;
   margin-left: 0.5rem;
 }
-.htmx-error-fragment {
-  margin-top: 0.4rem;
-}
-.htmx-error-fragment .error {
+.slot .error {
   display: block;
-  margin-left: 0;
-  font-size: 0.8rem;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 2;
+  width: max(100%, 8rem);
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  background: #fff;
+  border: 1px solid #b00020;
+  border-radius: 4px;
+  padding: 0.15rem 0.3rem;
 }
 
 .leaf form {
@@ -196,13 +202,24 @@ details[open] > .toggle::before {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Defense in depth: nothing rendered inside a slot (a stray broken-image
-     alt text, an oversized icon) can ever visually bleed into a neighbor,
-     regardless of cause. */
-  overflow: hidden;
 }
 .slot-empty {
   background: #f0f0f0;
+}
+.slot-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Defense in depth: nothing rendered inside a slot's icon area (a
+     stray broken-image alt text, an oversized icon) can ever visually
+     bleed into a neighbor, regardless of cause. Scoped to this inner
+     wrapper rather than .slot itself, since .slot-label and
+     .slot-remove-btn are deliberately positioned partly outside .slot's
+     own box and must not be clipped. */
+  overflow: hidden;
 }
 .slot-click-target {
   width: 100%;

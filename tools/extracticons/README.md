@@ -42,4 +42,4 @@ game's `Content/Paks` directory), `-retoc` (path to the binary above),
 Partial coverage is expected and fine — not every catalog item has a
 distinct icon asset, and compressed (non-`PF_B8G8R8A8`) textures are
 intentionally unsupported. Items with no extracted icon fall back to
-`static/icons/_placeholder.png` at render time.
+`static/icons/placeholder.png` at render time.
