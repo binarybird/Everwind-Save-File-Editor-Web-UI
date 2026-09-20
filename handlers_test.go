@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -240,14 +241,19 @@ func multipartUploadRequest(t *testing.T, path string) *http.Request {
 	if err != nil {
 		t.Fatalf("reading %s: %v", path, err)
 	}
-	return multipartUploadRequestBytes(t, data)
+	return multipartUploadRequestBytesNamed(t, data, filepath.Base(path))
 }
 
 func multipartUploadRequestBytes(t *testing.T, data []byte) *http.Request {
 	t.Helper()
+	return multipartUploadRequestBytesNamed(t, data, "upload.sav")
+}
+
+func multipartUploadRequestBytesNamed(t *testing.T, data []byte, filename string) *http.Request {
+	t.Helper()
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
-	part, err := mw.CreateFormFile("savefile", "upload.sav")
+	part, err := mw.CreateFormFile("savefile", filename)
 	if err != nil {
 		t.Fatalf("CreateFormFile: %v", err)
 	}

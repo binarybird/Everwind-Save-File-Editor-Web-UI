@@ -51,7 +51,10 @@
 {{end}}
 
 {{define "uploadResponse"}}
-<div id="download-area" hx-swap-oob="true"><a href="/session/{{.SessionID}}/download">Download edited save</a></div>
+<div id="download-area" hx-swap-oob="true">
+  <a href="/session/{{.SessionID}}/download">Download edited save</a>
+  <a href="/session/{{.SessionID}}/meta" class="download-meta-link" title="The game checks this checksum sidecar on load and reverts to its own backup if it doesn't match the .sav -- download both files and place them together to keep your edit.">Download .meta</a>
+</div>
 <div class="tabs">
   <button type="button" class="tab-btn" hx-get="/session/{{.SessionID}}/children?path=" hx-target="#tab-content" hx-swap="innerHTML">Tree</button>
   <button type="button" class="tab-btn" hx-get="/session/{{.SessionID}}/inventory" hx-target="#tab-content" hx-swap="innerHTML">Inventory</button>

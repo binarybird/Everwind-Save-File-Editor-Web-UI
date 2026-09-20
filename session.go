@@ -19,7 +19,14 @@ import (
 // reading — see handlers.go.
 type Session struct {
 	File *gvas.File
-	mu   sync.RWMutex
+	// Filename is the original uploaded file's name (e.g. "Player_Local.sav"),
+	// used to name both the /download and /meta responses so they pair up
+	// correctly (matching filenames is exactly what the game's own
+	// "<file>.sav" + "<file>.sav.meta" sidecar convention requires) without
+	// the user needing to rename anything by hand. Immutable after Create,
+	// so reading it needs no lock.
+	Filename string
+	mu       sync.RWMutex
 }
 
 // SessionStore is a concurrency-safe in-memory map of session id -> Session.
@@ -32,15 +39,16 @@ func NewSessionStore() *SessionStore {
 	return &SessionStore{sessions: make(map[string]*Session)}
 }
 
-// Create stores f under a freshly minted random id and returns that id.
-func (s *SessionStore) Create(f *gvas.File) (string, error) {
+// Create stores f (and the uploaded filename it came from) under a
+// freshly minted random id and returns that id.
+func (s *SessionStore) Create(f *gvas.File, filename string) (string, error) {
 	id, err := newSessionID()
 	if err != nil {
 		return "", err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.sessions[id] = &Session{File: f}
+	s.sessions[id] = &Session{File: f, Filename: filename}
 	return id, nil
 }
 

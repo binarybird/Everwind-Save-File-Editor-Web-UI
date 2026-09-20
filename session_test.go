@@ -10,7 +10,7 @@ func TestSessionStoreCreateAndGet(t *testing.T) {
 	store := NewSessionStore()
 	f := &gvas.File{}
 
-	id, err := store.Create(f)
+	id, err := store.Create(f, "Player_Local.sav")
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -24,6 +24,9 @@ func TestSessionStoreCreateAndGet(t *testing.T) {
 	}
 	if got.File != f {
 		t.Error("Get returned a different *gvas.File than was stored")
+	}
+	if got.Filename != "Player_Local.sav" {
+		t.Errorf("Get returned Filename = %q, want %q", got.Filename, "Player_Local.sav")
 	}
 }
 
@@ -40,7 +43,7 @@ func TestSessionStoreCreateReturnsUniqueIDs(t *testing.T) {
 
 	seen := make(map[string]bool)
 	for i := 0; i < 100; i++ {
-		id, err := store.Create(f)
+		id, err := store.Create(f, "test.sav")
 		if err != nil {
 			t.Fatalf("Create: %v", err)
 		}

@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"skyversesave/gvas"
 )
@@ -30,6 +32,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /session/{id}/children", s.handleChildren)
 	mux.HandleFunc("POST /session/{id}/edit", s.handleEdit)
 	mux.HandleFunc("GET /session/{id}/download", s.handleDownload)
+	mux.HandleFunc("GET /session/{id}/meta", s.handleMeta)
 	mux.HandleFunc("GET /session/{id}/inventory", s.handleInventory)
 	mux.HandleFunc("POST /session/{id}/slot/add", s.handleSlotAdd)
 	mux.HandleFunc("POST /session/{id}/slot/remove", s.handleSlotRemove)
@@ -50,7 +53,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		renderError(w, http.StatusUnprocessableEntity, fmt.Errorf("file too large or malformed upload: %w", err))
 		return
 	}
-	file, _, err := r.FormFile("savefile")
+	file, header, err := r.FormFile("savefile")
 	if err != nil {
 		renderError(w, http.StatusUnprocessableEntity, fmt.Errorf("no file provided: %w", err))
 		return
@@ -69,7 +72,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := s.store.Create(parsed)
+	id, err := s.store.Create(parsed, sanitizeDownloadFilename(header.Filename))
 	if err != nil {
 		renderError(w, http.StatusInternalServerError, fmt.Errorf("creating session: %w", err))
 		return
@@ -234,8 +237,61 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="edited.sav"`)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, sess.Filename))
 	w.Write(data)
+}
+
+// handleMeta returns the session's current save data's ".meta" sidecar
+// content: the exact plain-text CRC32 checksum the game compares
+// against on load (see gvas.MetaChecksum) -- a save written by anything
+// other than the game itself needs this sidecar rewritten to match, or
+// the game treats the file as corrupt and silently falls back to its
+// own ".backup". Named "<Filename>.meta" so it pairs correctly with the
+// /download response's filename in the game's own save directory.
+func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, ok := s.store.Get(id)
+	if !ok {
+		renderSessionNotFound(w)
+		return
+	}
+
+	sess.mu.RLock()
+	data, err := gvas.Marshal(sess.File)
+	sess.mu.RUnlock()
+	if err != nil {
+		renderError(w, http.StatusInternalServerError, fmt.Errorf("encoding save: %w", err))
+		return
+	}
+
+	checksum := gvas.MetaChecksum(data)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.meta"`, sess.Filename))
+	w.Write([]byte(checksum))
+}
+
+// sanitizeDownloadFilename turns an untrusted, user-supplied upload
+// filename into one safe to echo back in a Content-Disposition header:
+// path components stripped (filepath.Base), double quotes and control
+// characters (which could otherwise break out of the header's quoted
+// filename value) removed, falling back to "edited.sav" for an empty,
+// path-only ("/", ".", ".."), or otherwise-empty-after-sanitizing name.
+func sanitizeDownloadFilename(name string) string {
+	const fallback = "edited.sav"
+	name = filepath.Base(name)
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		return fallback
+	}
+	name = strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, name)
+	if name == "" {
+		return fallback
+	}
+	return name
 }
 
 func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {

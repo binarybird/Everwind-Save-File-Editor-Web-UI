@@ -80,7 +80,11 @@ details[open] > .toggle::before {
 
 #download-area a {
   display: inline-block;
-  margin: 1rem 0;
+  margin: 1rem 1rem 1rem 0;
+}
+.download-meta-link {
+  color: #666;
+  font-size: 0.9em;
 }
 
 .upload-zone {
