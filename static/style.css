@@ -56,6 +56,14 @@ details[open] > .toggle::before {
   color: #b00020;
   margin-left: 0.5rem;
 }
+.htmx-error-fragment {
+  margin-top: 0.4rem;
+}
+.htmx-error-fragment .error {
+  display: block;
+  margin-left: 0;
+  font-size: 0.8rem;
+}
 
 .leaf form {
   display: inline;
@@ -170,8 +178,13 @@ details[open] > .toggle::before {
 .equipment-slots {
   display: grid;
   grid-template-columns: repeat(4, 3rem);
-  gap: 0.25rem;
+  column-gap: 0.25rem;
+  /* Taller than .slot-grid's gap: each slot's .slot-label sits 1.1rem
+     above it (position: absolute; top: -1.1rem), which would otherwise
+     overlap the row above it. */
+  row-gap: 1.4rem;
   max-width: 14rem;
+  margin-top: 1.2rem;
 }
 .slot {
   position: relative;

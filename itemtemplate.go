@@ -120,10 +120,28 @@ func setFieldBool(props []*gvas.Property, name string, value bool) {
 		p.SetBool(value)
 	}
 }
+// clearFieldArray empties the named ArrayProperty regardless of its
+// InnerType. Only one of ArrayValue's slice fields is ever populated for
+// a given array (see gvas/property.go), determined by InnerType -- e.g.
+// AdditionalAlchemyEffectsList is an ObjectProperty-inner array (so it
+// uses RawCount/RawElements) and AdditionalAlchemyEffectsTiers is a
+// ByteProperty-inner array (so it uses Bytes), neither of which is
+// Structs. Clearing only Structs left those two as no-ops.
 func clearFieldArray(props []*gvas.Property, name string) {
-	if p := findFieldProp(props, name); p != nil && p.Array != nil {
-		p.Array.Structs = nil
+	p := findFieldProp(props, name)
+	if p == nil || p.Array == nil {
+		return
 	}
+	p.Array.Structs = nil
+	p.Array.Bools = nil
+	p.Array.Ints = nil
+	p.Array.Int64s = nil
+	p.Array.Floats = nil
+	p.Array.Doubles = nil
+	p.Array.Strings = nil
+	p.Array.Bytes = nil
+	p.Array.RawCount = 0
+	p.Array.RawElements = nil
 }
 
 // deepCopyProps recursively copies a property list so mutating the copy

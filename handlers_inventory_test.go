@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"skyversesave/gvas"
 )
 
 func TestHandleInventoryRendersGrid(t *testing.T) {
@@ -219,6 +221,125 @@ func TestHandleSlotAddUnknownItem(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400 (unknown item)", rec.Code)
+	}
+}
+
+// TestHandleSlotAddRoundTripsThroughDownload exercises the spec's
+// required end-to-end path: add an item, download, re-parse with
+// gvas.Unmarshal, and confirm the new item -- built via buildNewItem's
+// real clone-or-template logic, not a hand-built one-field stub -- is
+// really there with the right BaseData and quantity. This is the
+// regression net that would have caught SlotsWithItems being left at 0
+// after an add.
+func TestHandleSlotAddRoundTripsThroughDownload(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Hotbar[8].SlotPath // empty in testdata
+	itemPath := "/Game/Data/Items/Resources_2500-2999/2553_IDA_RepairKit.2553_IDA_RepairKit"
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	form.Set("itemPath", itemPath)
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/add", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+	s.handleSlotAdd(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("slot/add status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	downloadReq := httptest.NewRequest(http.MethodGet, "/session/"+id+"/download", nil)
+	downloadReq.SetPathValue("id", id)
+	downloadRec := httptest.NewRecorder()
+	s.handleDownload(downloadRec, downloadReq)
+	if downloadRec.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200", downloadRec.Code)
+	}
+
+	f2, err := gvas.Unmarshal(downloadRec.Body.Bytes())
+	if err != nil {
+		t.Fatalf("re-Unmarshal downloaded save: %v", err)
+	}
+	itemsProp, err := gvas.Lookup(f2, slotPath+".Items")
+	if err != nil {
+		t.Fatalf("re-parsed save: resolving %s.Items: %v", slotPath, err)
+	}
+	if itemsProp.Array == nil || len(itemsProp.Array.Structs) != 1 {
+		t.Fatalf("re-parsed save: %s.Items has %d elements, want 1", slotPath, arrayLen(itemsProp.Array))
+	}
+	base := findFieldProp(itemsProp.Array.Structs[0], "BaseData")
+	if base == nil || base.Str == nil || *base.Str != itemPath {
+		t.Errorf("re-parsed save: added item's BaseData = %+v, want %q", base, itemPath)
+	}
+	qtyProp, err := gvas.Lookup(f2, slotPath+".SlotsWithItems")
+	if err != nil || qtyProp.Int32 == nil || *qtyProp.Int32 != 1 {
+		t.Errorf("re-parsed save: %s.SlotsWithItems = %v, want 1", slotPath, qtyProp)
+	}
+}
+
+// TestHandleSlotRemoveRoundTripsThroughDownload exercises the spec's
+// required end-to-end path: remove an item, download, re-parse, confirm
+// the slot's Items is empty and SlotsWithItems is reset, and confirm an
+// unrelated top-level field is untouched.
+func TestHandleSlotRemoveRoundTripsThroughDownload(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Backpack[0].SlotPath // occupied (RepairKit) in testdata
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/remove", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+	s.handleSlotRemove(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("slot/remove status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	downloadReq := httptest.NewRequest(http.MethodGet, "/session/"+id+"/download", nil)
+	downloadReq.SetPathValue("id", id)
+	downloadRec := httptest.NewRecorder()
+	s.handleDownload(downloadRec, downloadReq)
+	if downloadRec.Code != http.StatusOK {
+		t.Fatalf("download status = %d, want 200", downloadRec.Code)
+	}
+
+	f2, err := gvas.Unmarshal(downloadRec.Body.Bytes())
+	if err != nil {
+		t.Fatalf("re-Unmarshal downloaded save: %v", err)
+	}
+	itemsProp, err := gvas.Lookup(f2, slotPath+".Items")
+	if err != nil {
+		t.Fatalf("re-parsed save: resolving %s.Items: %v", slotPath, err)
+	}
+	if itemsProp.Array == nil || len(itemsProp.Array.Structs) != 0 {
+		t.Fatalf("re-parsed save: %s.Items has %d elements, want 0", slotPath, arrayLen(itemsProp.Array))
+	}
+	qtyProp, err := gvas.Lookup(f2, slotPath+".SlotsWithItems")
+	if err != nil || qtyProp.Int32 == nil || *qtyProp.Int32 != 0 {
+		t.Errorf("re-parsed save: %s.SlotsWithItems = %v, want 0", slotPath, qtyProp)
+	}
+
+	original, err := gvas.Unmarshal(readTestdata(t, "Player_Local.sav"))
+	if err != nil {
+		t.Fatalf("Unmarshal original testdata: %v", err)
+	}
+	island := findFieldProp(f2.Root, "IslandID")
+	wantIsland := findFieldProp(original.Root, "IslandID")
+	if island == nil || wantIsland == nil || *island.Str != *wantIsland.Str {
+		t.Errorf("IslandID changed unexpectedly: got %+v, want %+v", island, wantIsland)
 	}
 }
 

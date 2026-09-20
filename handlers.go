@@ -140,6 +140,17 @@ func (s *Server) handleEdit(w http.ResponseWriter, r *http.Request) {
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
+	// Validate slotPath resolves BEFORE touching path, so a tampered
+	// request carrying a slotPath that doesn't match path can never leave
+	// the session half-edited (path's edit applied, then a failure
+	// re-rendering slotPath).
+	if slotPath != "" {
+		if _, isContainer, err := propsAt(sess.File, slotPath); err != nil || !isContainer {
+			renderError(w, http.StatusBadRequest, fmt.Errorf("invalid slot %q", slotPath))
+			return
+		}
+	}
+
 	p, err := gvas.Lookup(sess.File, path)
 	if err != nil {
 		if slotPath != "" {
@@ -190,8 +201,14 @@ func (s *Server) renderSlot(w http.ResponseWriter, f *gvas.File, sessionID, slot
 	// refuses to resolve directly (see treeview.go's propsAt/splitTrailingIndex
 	// docs) — so resolve it the same way the Tree tab does.
 	props, isContainer, err := propsAt(f, slotPath)
-	if err != nil || !isContainer {
-		renderError(w, http.StatusInternalServerError, fmt.Errorf("re-rendering slot %q: %w", slotPath, err))
+	if err != nil {
+		// A client-supplied slotPath that doesn't resolve is bad input, not
+		// a server fault.
+		renderError(w, http.StatusBadRequest, fmt.Errorf("re-rendering slot %q: %w", slotPath, err))
+		return
+	}
+	if !isContainer {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("re-rendering slot %q: not a container", slotPath))
 		return
 	}
 	sv := buildSlotView(props, slotPath, sessionID, s.itemCatalog)
@@ -269,6 +286,10 @@ func (s *Server) handleSlotRemove(w http.ResponseWriter, r *http.Request) {
 		renderError(w, http.StatusInternalServerError, err)
 		return
 	}
+	if err := setSlotQuantity(sess.File, slotPath, 0); err != nil {
+		renderError(w, http.StatusInternalServerError, err)
+		return
+	}
 	s.renderSlot(w, sess.File, id, slotPath, http.StatusOK, "")
 }
 
@@ -315,7 +336,29 @@ func (s *Server) handleSlotAdd(w http.ResponseWriter, r *http.Request) {
 		renderError(w, http.StatusInternalServerError, err)
 		return
 	}
+	if err := setSlotQuantity(sess.File, slotPath, 1); err != nil {
+		renderError(w, http.StatusInternalServerError, err)
+		return
+	}
 	s.renderSlot(w, sess.File, id, slotPath, http.StatusOK, "")
+}
+
+// setSlotQuantity sets the SlotsWithItems field of the slot at slotPath,
+// clamped to that slot's MaxStackCount if present (never above it).
+// handleSlotAdd/handleSlotRemove must keep SlotsWithItems consistent with
+// Items themselves -- it's the field the game (and this app's own grid)
+// reads as the stack quantity, not merely whether Items is non-empty; a
+// prior version of this code left it stale, so e.g. a remove-then-add on
+// the same slot silently inherited the removed item's old quantity.
+func setSlotQuantity(f *gvas.File, slotPath string, qty int32) error {
+	qtyProp, err := gvas.Lookup(f, slotPath+".SlotsWithItems")
+	if err != nil {
+		return fmt.Errorf("resolving slot quantity: %w", err)
+	}
+	if maxProp, err := gvas.Lookup(f, slotPath+".MaxStackCount"); err == nil && maxProp.Int32 != nil && qty > *maxProp.Int32 {
+		qty = *maxProp.Int32
+	}
+	return qtyProp.SetInt32(qty)
 }
 
 // applyEdit parses value against p's existing scalar kind and applies it,
