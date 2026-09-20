@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 func TestHandleInventoryRendersGrid(t *testing.T) {

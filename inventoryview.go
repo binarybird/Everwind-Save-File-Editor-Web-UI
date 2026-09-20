@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 // slotView is one inventory or equipment slot's render data. See

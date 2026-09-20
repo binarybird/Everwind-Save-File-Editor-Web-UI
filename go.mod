@@ -1,7 +1,5 @@
-module skyverseweb
+module github.com/binarybird/Everwind-Save-File-Editor-Web-UI
 
 go 1.25.5
 
-replace skyversesave => /home/binarybird/Desktop/analysis/skyverse-save-tool
-
-require skyversesave v0.0.0
+require github.com/binarybird/Everwind-Save-File-Editor-CLI v0.0.0-20260920190107-9c2449f7cc1b

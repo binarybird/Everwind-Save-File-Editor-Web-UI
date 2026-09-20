@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 func TestSessionStoreCreateAndGet(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 // Session holds one uploaded save's decoded tree for the life of the

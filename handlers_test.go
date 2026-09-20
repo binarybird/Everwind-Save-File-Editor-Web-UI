@@ -15,7 +15,7 @@ import (
 	"sync"
 	"testing"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 func newTestServer(t *testing.T) *Server {
@@ -295,7 +295,7 @@ func TestHandleEditString(t *testing.T) {
 // the web UI. This is cross-project behavior: gvas decodes ObjectProperty
 // as a plain string when possible, and this handler never special-cases
 // property types — it just works because everything here dispatches on
-// Property.Str, not Type. See skyversesave/gvas's decode.go.
+// Property.Str, not Type. See the CLI repo's gvas/decode.go.
 func TestHandleEditObjectPropertyPath(t *testing.T) {
 	s := newTestServer(t)
 	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")

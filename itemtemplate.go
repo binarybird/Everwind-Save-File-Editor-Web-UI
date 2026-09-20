@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 // buildNewItem returns the property list for a new item referencing

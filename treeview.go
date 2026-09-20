@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 // childItem is the display/navigation data for one property in the tree,

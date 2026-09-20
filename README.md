@@ -76,8 +76,13 @@ never risks corrupting the rest of the file.
 
 ## Build and run
 
-    go build ./...
+    go build -o skyverseweb .
     ./skyverseweb -addr :8080
+
+(`go build ./...` also works, but only as a "does everything compile"
+check — this module has more than one `main` package (the server here,
+plus the `tools/extracticons` maintenance script), so it doesn't leave a
+binary behind on its own; build the server's own package explicitly.)
 
 Then open http://localhost:8080, upload a `.sav` file (drag-and-drop or
 browse), and start editing.
@@ -89,14 +94,11 @@ first place (see `tools/extracticons/README.md`).
 
 ### Requirements
 
-This module depends on `skyversesave` via a local `replace` directive in
-`go.mod` pointing at wherever `skyverse-save-tool` is checked out on
-disk:
-
-    replace skyversesave => /home/binarybird/Desktop/analysis/skyverse-save-tool
-
-If you check out `skyverse-save-tool` at a different path (or on a
-different machine), update that line to match.
+This module depends on
+[`Everwind-Save-File-Editor-CLI`](https://github.com/binarybird/Everwind-Save-File-Editor-CLI)
+(the `gvas` library) as a normal Go module dependency resolved from
+GitHub — `go build`/`go test` fetch it automatically, no local checkout
+of that repo is needed.
 
 ## Why the `.meta` download matters
 

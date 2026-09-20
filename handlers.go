@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 // Server holds the shared dependencies every handler needs.

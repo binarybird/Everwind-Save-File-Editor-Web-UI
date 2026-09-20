@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"strings"
 
-	"skyverseweb/iconextract"
+	"github.com/binarybird/Everwind-Save-File-Editor-Web-UI/iconextract"
 )
 
 func main() {

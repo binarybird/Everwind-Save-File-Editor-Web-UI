@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"skyversesave/gvas"
+	"github.com/binarybird/Everwind-Save-File-Editor-CLI/gvas"
 )
 
 func readTestdata(t *testing.T, name string) []byte {
