@@ -100,3 +100,50 @@ func TestBuildInventoryGridViewEquipmentOrderAndLabels(t *testing.T) {
 		t.Errorf("Equipment[0].ObjectPath = %q, want %q", helmet.ObjectPath, wantPath)
 	}
 }
+
+func TestBuildInventoryGridViewNonArraySlotsDoesNotPanic(t *testing.T) {
+	// Create a minimal file with a component where Slots is a property with Array == nil.
+	// This tests that BuildInventoryGridView returns an error cleanly instead of panicking
+	// when encountering a malformed save file (Slots property exists but is not an array).
+	slotsProperty := &gvas.Property{
+		Name:  "Slots",
+		Type:  "ArrayProperty",
+		Array: nil, // Malformed: property exists but Array is nil
+	}
+	dataDataStruct := []*gvas.Property{slotsProperty}
+	dataProperty := &gvas.Property{
+		Name:   "Data",
+		Type:   "StructProperty",
+		Struct: dataDataStruct,
+	}
+	dataPropertyOuter := &gvas.Property{
+		Name:   "Data",
+		Type:   "StructProperty",
+		Struct: []*gvas.Property{dataProperty},
+	}
+	componentNameProp := &gvas.Property{
+		Name: "ComponentName",
+		Type: "StrProperty",
+		Str:  func() *string { s := "Inventory"; return &s }(),
+	}
+	componentStruct := []*gvas.Property{componentNameProp, dataPropertyOuter}
+	componentsProperty := &gvas.Property{
+		Name:  "Components",
+		Type:  "ArrayProperty",
+		Array: &gvas.ArrayValue{Structs: [][]*gvas.Property{componentStruct}},
+	}
+
+	f := &gvas.File{
+		Root: []*gvas.Property{componentsProperty},
+	}
+
+	view, err := BuildInventoryGridView(f, "sess1", map[string]catalogEntry{})
+	if view != nil {
+		t.Errorf("expected nil view, got non-nil")
+	}
+	if err == nil {
+		t.Fatal("expected error for nil Array, got nil")
+	}
+	// If we got here without panicking, the fix is working. If the code had the bug,
+	// it would panic when calling arrayLen on a nil Array.
+}

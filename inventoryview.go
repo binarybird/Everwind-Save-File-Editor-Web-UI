@@ -53,7 +53,10 @@ func BuildInventoryGridView(f *gvas.File, sessionID string, catalog map[string]c
 	if err != nil {
 		return nil, fmt.Errorf("inventory Slots: %w", err)
 	}
-	if invSlots.Array == nil || len(invSlots.Array.Structs) != 63 {
+	if invSlots.Array == nil {
+		return nil, fmt.Errorf("inventory Slots: not an array")
+	}
+	if len(invSlots.Array.Structs) != 63 {
 		return nil, fmt.Errorf("inventory Slots: expected 63 elements, got %d", arrayLen(invSlots.Array))
 	}
 
@@ -65,7 +68,10 @@ func BuildInventoryGridView(f *gvas.File, sessionID string, catalog map[string]c
 	if err != nil {
 		return nil, fmt.Errorf("equipment Slots: %w", err)
 	}
-	if eqSlots.Array == nil || len(eqSlots.Array.Structs) != 8 {
+	if eqSlots.Array == nil {
+		return nil, fmt.Errorf("equipment Slots: not an array")
+	}
+	if len(eqSlots.Array.Structs) != 8 {
 		return nil, fmt.Errorf("equipment Slots: expected 8 elements, got %d", arrayLen(eqSlots.Array))
 	}
 
