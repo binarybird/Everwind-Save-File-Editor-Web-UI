@@ -31,6 +31,8 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /session/{id}/edit", s.handleEdit)
 	mux.HandleFunc("GET /session/{id}/download", s.handleDownload)
 	mux.HandleFunc("GET /session/{id}/inventory", s.handleInventory)
+	mux.HandleFunc("POST /session/{id}/slot/add", s.handleSlotAdd)
+	mux.HandleFunc("POST /session/{id}/slot/remove", s.handleSlotRemove)
 	return mux
 }
 
@@ -236,6 +238,84 @@ func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
 	if err := s.templates.ExecuteTemplate(w, "inventory", view); err != nil {
 		log.Printf("rendering inventory: %v", err)
 	}
+}
+
+func (s *Server) handleSlotRemove(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, ok := s.store.Get(id)
+	if !ok {
+		renderSessionNotFound(w)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("bad form: %w", err))
+		return
+	}
+	slotPath := r.FormValue("slotPath")
+
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+
+	itemsProp, err := gvas.Lookup(sess.File, slotPath+".Items")
+	if err != nil {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("resolving slot: %w", err))
+		return
+	}
+	if itemsProp.Array == nil || len(itemsProp.Array.Structs) == 0 {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("slot is already empty"))
+		return
+	}
+	if err := itemsProp.RemoveStructElement(0); err != nil {
+		renderError(w, http.StatusInternalServerError, err)
+		return
+	}
+	s.renderSlot(w, sess.File, id, slotPath, http.StatusOK, "")
+}
+
+func (s *Server) handleSlotAdd(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, ok := s.store.Get(id)
+	if !ok {
+		renderSessionNotFound(w)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("bad form: %w", err))
+		return
+	}
+	slotPath := r.FormValue("slotPath")
+	itemPath := r.FormValue("itemPath")
+
+	sess.mu.Lock()
+	defer sess.mu.Unlock()
+
+	if _, ok := s.itemCatalog[itemPath]; !ok {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("unknown item %q", itemPath))
+		return
+	}
+	itemsProp, err := gvas.Lookup(sess.File, slotPath+".Items")
+	if err != nil {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("resolving slot: %w", err))
+		return
+	}
+	if itemsProp.Array == nil {
+		renderError(w, http.StatusInternalServerError, fmt.Errorf("slot %q has no Items array", slotPath))
+		return
+	}
+	if len(itemsProp.Array.Structs) != 0 {
+		renderError(w, http.StatusBadRequest, fmt.Errorf("slot already has an item"))
+		return
+	}
+	newItem, err := buildNewItem(sess.File, itemPath)
+	if err != nil {
+		renderError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := itemsProp.AppendStructElement(newItem); err != nil {
+		renderError(w, http.StatusInternalServerError, err)
+		return
+	}
+	s.renderSlot(w, sess.File, id, slotPath, http.StatusOK, "")
 }
 
 // applyEdit parses value against p's existing scalar kind and applies it,

@@ -100,3 +100,149 @@ func TestHandleEditFromTreeTabStillRendersLeafRow(t *testing.T) {
 		t.Errorf("expected the existing leafRow fragment (no slotPath was sent), got:\n%s", rec.Body.String())
 	}
 }
+
+func TestHandleSlotRemove(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Backpack[0].SlotPath // occupied (RepairKit) in testdata
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/remove", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+
+	s.handleSlotRemove(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "/static/icons/") {
+		t.Errorf("expected the slot to render empty after removal, got:\n%s", rec.Body.String())
+	}
+
+	view2, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView after remove: %v", err)
+	}
+	if view2.Backpack[0].Occupied {
+		t.Error("Backpack[0] still Occupied=true after remove")
+	}
+}
+
+func TestHandleSlotRemoveAlreadyEmpty(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Hotbar[8].SlotPath // empty in testdata
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/remove", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+
+	s.handleSlotRemove(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (slot already empty)", rec.Code)
+	}
+}
+
+func TestHandleSlotAdd(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Hotbar[8].SlotPath // empty in testdata
+	itemPath := "/Game/Data/Items/Resources_2500-2999/2553_IDA_RepairKit.2553_IDA_RepairKit"
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	form.Set("itemPath", itemPath)
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/add", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+
+	s.handleSlotAdd(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", rec.Code, rec.Body.String())
+	}
+
+	view2, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView after add: %v", err)
+	}
+	if !view2.Hotbar[8].Occupied {
+		t.Fatal("Hotbar[8] still Occupied=false after add")
+	}
+	if view2.Hotbar[8].ObjectPath != itemPath {
+		t.Errorf("Hotbar[8].ObjectPath = %q, want %q", view2.Hotbar[8].ObjectPath, itemPath)
+	}
+}
+
+func TestHandleSlotAddUnknownItem(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Hotbar[8].SlotPath
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	form.Set("itemPath", "/Game/Not/A/Real/Item.Item")
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/add", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+
+	s.handleSlotAdd(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (unknown item)", rec.Code)
+	}
+}
+
+func TestHandleSlotAddAlreadyOccupied(t *testing.T) {
+	s := newTestServer(t)
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	sess, _ := s.store.Get(id)
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	if err != nil {
+		t.Fatalf("BuildInventoryGridView: %v", err)
+	}
+	slotPath := view.Backpack[0].SlotPath // occupied
+
+	form := url.Values{}
+	form.Set("slotPath", slotPath)
+	form.Set("itemPath", "/Game/Data/Items/Resources_2500-2999/2553_IDA_RepairKit.2553_IDA_RepairKit")
+	req := httptest.NewRequest(http.MethodPost, "/session/"+id+"/slot/add", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetPathValue("id", id)
+	rec := httptest.NewRecorder()
+
+	s.handleSlotAdd(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 (slot already occupied)", rec.Code)
+	}
+}

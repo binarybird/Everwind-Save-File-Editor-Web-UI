@@ -39,6 +39,17 @@
       <input type="number" name="value" value="{{.Quantity}}" min="0" class="slot-qty-input">
     </form>
     {{if gt .Quantity 1}}<span class="slot-qty">{{.Quantity}}</span>{{end}}
+    <form class="slot-remove-form" hx-post="/session/{{.SessionID}}/slot/remove" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
+      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
+      <button type="submit" class="slot-remove-btn" title="Remove item">×</button>
+    </form>
+  {{else}}
+    <form class="slot-add-form" hx-post="/session/{{.SessionID}}/slot/add" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
+      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
+      <span class="item-picker">
+        <input type="text" name="itemPath" placeholder="+" data-item-picker="1" autocomplete="off" class="slot-add-input">
+      </span>
+    </form>
   {{end}}
   {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
 </div>
