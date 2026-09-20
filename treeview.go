@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -94,11 +95,19 @@ func splitTrailingIndex(path string) (parent string, index int, ok bool) {
 	return path[:open], n, true
 }
 
+// structChildren builds one object's field list, with non-expandable
+// items (scalars, native structs, read-only fallbacks) sorted before
+// expandable ones (nested structs/arrays), per the web UI's display
+// preference. The sort is stable, so within each group fields keep their
+// original declaration order from the save file.
 func structChildren(props []*gvas.Property, basePath string) []childItem {
 	items := make([]childItem, 0, len(props))
 	for _, p := range props {
 		items = append(items, propertyToItem(p, joinPath(basePath, p.Name)))
 	}
+	sort.SliceStable(items, func(i, j int) bool {
+		return !items[i].Expandable && items[j].Expandable
+	})
 	return items
 }
 

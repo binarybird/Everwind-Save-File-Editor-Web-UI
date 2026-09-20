@@ -129,6 +129,55 @@ func TestStructChildrenTopLevel(t *testing.T) {
 	}
 }
 
+// TestStructChildrenSortsNonExpandableFirst confirms the display-ordering
+// preference: within one object's field list, every non-expandable item
+// (scalar, native struct) sorts before every expandable one (nested
+// struct, array), regardless of the fields' order in the save file.
+func TestStructChildrenSortsNonExpandableFirst(t *testing.T) {
+	f := mustUnmarshal(t, "WorldInfo.sav")
+	items := structChildren(f.Root, "")
+
+	if len(items) < 2 {
+		t.Fatalf("expected multiple top-level items, got %d", len(items))
+	}
+	sawExpandable := false
+	for _, it := range items {
+		if it.Expandable {
+			sawExpandable = true
+			continue
+		}
+		if sawExpandable {
+			t.Fatalf("non-expandable item %q appeared after an expandable one; items: %+v", it.Label, items)
+		}
+	}
+	if !sawExpandable {
+		t.Fatal("expected at least one expandable item in WorldInfo.sav's top level (e.g. UDSData)")
+	}
+
+	// Order within each group is preserved (stable sort): WorldName comes
+	// before InitializeGameVersion in the file, both non-expandable;
+	// UDSData comes before BoatsData, both expandable.
+	worldNameIdx, gameVersionIdx, udsIdx, boatsIdx := -1, -1, -1, -1
+	for i, it := range items {
+		switch it.Label {
+		case "WorldName":
+			worldNameIdx = i
+		case "InitializeGameVersion":
+			gameVersionIdx = i
+		case "UDSData":
+			udsIdx = i
+		case "BoatsData":
+			boatsIdx = i
+		}
+	}
+	if worldNameIdx < 0 || gameVersionIdx < 0 || worldNameIdx > gameVersionIdx {
+		t.Errorf("expected WorldName before InitializeGameVersion (both non-expandable, original order preserved); got indices %d, %d", worldNameIdx, gameVersionIdx)
+	}
+	if udsIdx < 0 || boatsIdx < 0 || udsIdx > boatsIdx {
+		t.Errorf("expected UDSData before BoatsData (both expandable, original order preserved); got indices %d, %d", udsIdx, boatsIdx)
+	}
+}
+
 func TestStructChildrenNativeStruct(t *testing.T) {
 	f := mustUnmarshal(t, "WorldInfo.sav")
 	items := structChildren(f.Root, "")
