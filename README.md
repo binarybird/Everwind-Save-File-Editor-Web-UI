@@ -3,10 +3,13 @@
 A standalone web UI for browsing and editing **Skyverse** `.sav` save
 files in a browser — no game-file access or command line needed once
 it's running. Built on top of the `gvas` library from the sibling
-[`skyverse-save-tool`](../skyverse-save-tool) project. See
+[`Everwind-Save-File-Editor-CLI`](https://github.com/binarybird/Everwind-Save-File-Editor-CLI)
+project. See
 `docs/superpowers/specs/2026-09-19-skyverse-save-web-design.md` and
 `docs/superpowers/specs/2026-09-19-inventory-tab-design.md` for the
 design.
+
+![The Inventory tab: a 9x6 backpack grid, hotbar, and equipment panel, all showing real item icons](docs/screenshots/inventory-tab.png)
 
 ## What it does
 
@@ -25,6 +28,8 @@ Download the result as an edited `.sav`, plus the `.meta` checksum
 sidecar the game requires to actually accept it (see below) — critical,
 easy to miss, and the whole reason that download exists.
 
+![The Tree tab: the save's full property tree, lazily expandable, with inline-editable fields](docs/screenshots/tree-tab.png)
+
 ## Features
 
 ### Searchable item picker
@@ -40,6 +45,8 @@ tiers, materials, or variants of the same item). Click a result to fill
 in its exact reference; the first 50 matches are shown, so narrowing
 your search (e.g. "steel boots" instead of just "boots") helps once
 there are a lot of hits.
+
+![The Edit item popup, searching "perfe" and matching several Rune items by name](docs/screenshots/item-picker-modal.png)
 
 ### Inventory tab
 
