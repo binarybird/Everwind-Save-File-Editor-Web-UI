@@ -30,11 +30,14 @@ re-derived here, just recorded):
 
 - **Inventory component** (`ComponentName == "Inventory"`): its
   `Data.Slots` is a flat `ArrayProperty<StructProperty>` of exactly 63
-  elements. Indices `0..53` render as the 9×6 backpack grid (row-major:
-  `row = index / 9`, `col = index % 9`); indices `54..62` render as the
-  9-slot hotbar row below it. This matches the reference screenshot's
-  layout exactly (6 grid rows + a visually separated hotbar row = 7 rows
-  × 9 columns = 63).
+  elements. **Corrected post-implementation** (confirmed by directly
+  comparing the rendered grid against a real in-game inventory
+  screenshot — the original assumption below, made from the reference
+  screenshot's layout alone without save data to cross-check against,
+  had the two ranges backwards): indices `0..8` render as the 9-slot
+  hotbar row; indices `9..62` render as the 9×6 backpack grid (row-major:
+  `row = (index-9) / 9`, `col = (index-9) % 9`). 6 grid rows + a visually
+  separated hotbar row = 7 rows × 9 columns = 63.
 - **Equipment component** (`ComponentName == "Equipment"`): its
   `Data.Slots` is a fixed 8-element array in a stable, confirmed order:
   `[0]=Helmet, [1]=Chestplate, [2]=Gloves, [3]=Boots, [4]=Shield,
