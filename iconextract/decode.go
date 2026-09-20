@@ -20,13 +20,25 @@ const pixelFormatMarker = "PF_B8G8R8A8"
 //
 // The pixel format string is followed by a reserved int32 and a mip
 // count (int32); a full square power-of-two mip chain down to 1x1 is
-// assumed, so dim = 2^(mipCount-1). The exact per-mip header layout
-// isn't parsed field-by-field -- instead, the total header-block size is
-// derived algebraically: (bytes remaining after the pixel format
-// string) minus (the full mip chain's total pixel byte count) equals
-// the header block, which precedes all pixel data. This was verified
-// against two real icons (different categories, both 32x32) during this
-// feature's design spike.
+// assumed, so dim = 2^(mipCount-1). Mip 0's raw pixel bytes begin
+// immediately after those two int32 fields -- verified directly against
+// three real icons (different categories, all 32x32) by dumping the
+// full remaining byte range as a continuous image strip and visually
+// confirming the mip chain (32x32 followed by progressively smaller
+// copies of the same art) starts exactly there.
+//
+// An earlier version of this function computed a "header size" via
+// (bytes remaining) minus (the full mip chain's total pixel byte
+// count), on the theory that some other per-mip header data preceded
+// all the pixel bytes as one block. That arithmetic happened to
+// coincidentally match two sample icons during this feature's design
+// spike, but was wrong in general: the bytes it skipped past were
+// themselves the image's own top rows (typically transparent, so the
+// error wasn't obvious), and reading a same-sized window starting late
+// meant the window's tail wrapped into the next mip's data -- a visible
+// sliver of "foreign" content bleeding in at one edge. See
+// docs/superpowers/sdd/2026-09-19-inventory-tab progress ledger for the
+// live bug report and diagnosis that found this.
 func Decode(uexp []byte) (*image.NRGBA, error) {
 	idx := bytes.Index(uexp, []byte(pixelFormatMarker))
 	if idx < 0 {
@@ -49,17 +61,7 @@ func Decode(uexp []byte) (*image.NRGBA, error) {
 	}
 	dim := 1 << uint(mipCount-1)
 
-	totalPixelPayload := 0
-	for m := int32(0); m < mipCount; m++ {
-		mipDim := dim >> uint(m)
-		totalPixelPayload += mipDim * mipDim * 4
-	}
-	totalRemaining := len(uexp) - after
-	headerBytes := totalRemaining - totalPixelPayload
-	if headerBytes < 0 {
-		return nil, fmt.Errorf("iconextract: computed negative header size (%d); mip count %d / dim %d likely wrong for this file", headerBytes, mipCount, dim)
-	}
-	pixelStart := after + headerBytes
+	pixelStart := after + 8
 	pixelEnd := pixelStart + dim*dim*4
 	if pixelEnd > len(uexp) {
 		return nil, fmt.Errorf("iconextract: computed pixel range [%d:%d) exceeds file length %d", pixelStart, pixelEnd, len(uexp))
