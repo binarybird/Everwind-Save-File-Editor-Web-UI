@@ -113,4 +113,9 @@
   document.body.addEventListener("htmx:afterSettle", function (e) {
     wireAll(e.target);
   });
+
+  // Exposed so slotmodal.js can wire an item-picker input it just built
+  // into the modal dialog's innerHTML -- that content isn't inserted via
+  // an htmx swap, so the htmx:afterSettle listener above never sees it.
+  window.wireItemPickers = wireAll;
 })();

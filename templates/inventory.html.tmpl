@@ -19,37 +19,32 @@
     </div>
   </section>
 </div>
+<dialog id="slot-modal" class="slot-modal"></dialog>
 {{end}}
 
 {{define "slot"}}
-<div class="slot{{if not .Occupied}} slot-empty{{end}}" id="slot-{{.RowID}}">
+<div class="slot{{if not .Occupied}} slot-empty{{end}}" id="slot-{{.RowID}}"
+     data-session-id="{{.SessionID}}"
+     data-slot-path="{{.SlotPath}}"
+     data-item-path="{{.ItemPath}}"
+     data-qty-path="{{.QtyPath}}"
+     data-object-path="{{.ObjectPath}}"
+     data-name="{{.Name}}"
+     data-icon="{{.IconFile}}"
+     data-quantity="{{.Quantity}}"
+     data-occupied="{{.Occupied}}">
   {{if .Label}}<span class="slot-label">{{.Label}}</span>{{end}}
   {{if .Occupied}}
-    <form class="slot-item-form" hx-post="/session/{{.SessionID}}/edit" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
-      <input type="hidden" name="path" value="{{.ItemPath}}">
-      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
-      <span class="item-picker">
-        <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}_placeholder.png{{end}}" alt="{{.Name}}" title="{{.Name}}">
-        <input type="text" name="value" value="{{.ObjectPath}}" data-item-picker="1" autocomplete="off" class="slot-item-input">
-      </span>
-    </form>
-    <form class="slot-qty-form" hx-post="/session/{{.SessionID}}/edit" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
-      <input type="hidden" name="path" value="{{.QtyPath}}">
-      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
-      <input type="number" name="value" value="{{.Quantity}}" min="0" class="slot-qty-input">
-    </form>
+    <button type="button" class="slot-click-target" title="Click to edit — {{.Name}}">
+      <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}placeholder.png{{end}}" alt="{{.Name}}" onerror="window.__iconMissing(this)">
+    </button>
     {{if gt .Quantity 1}}<span class="slot-qty">{{.Quantity}}</span>{{end}}
-    <form class="slot-remove-form" hx-post="/session/{{.SessionID}}/slot/remove" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
+    <form class="slot-remove-form" hx-post="/session/{{.SessionID}}/slot/remove" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML" hx-confirm="Remove this item from the slot?">
       <input type="hidden" name="slotPath" value="{{.SlotPath}}">
       <button type="submit" class="slot-remove-btn" title="Remove item">×</button>
     </form>
   {{else}}
-    <form class="slot-add-form" hx-post="/session/{{.SessionID}}/slot/add" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
-      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
-      <span class="item-picker">
-        <input type="text" name="itemPath" placeholder="+" data-item-picker="1" autocomplete="off" class="slot-add-input">
-      </span>
-    </form>
+    <button type="button" class="slot-click-target slot-add-btn" title="Add an item to this slot">+</button>
   {{end}}
   {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
 </div>

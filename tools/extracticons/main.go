@@ -98,7 +98,11 @@ func run(paksDir, retocPath, itemsPath, iconsOut, workDir string) error {
 	}
 	log.Printf("extracted %d icons, %d items had no usable icon", found, missing)
 
-	if err := writePlaceholder(filepath.Join(iconsOut, "_placeholder.png")); err != nil {
+	// NOT "_placeholder.png" -- Go's //go:embed directive silently excludes
+	// any file or directory whose name starts with "_" or "." from the
+	// embedded filesystem, which made this 404 at runtime despite existing
+	// on disk (discovered via manual UI testing after this tool's first run).
+	if err := writePlaceholder(filepath.Join(iconsOut, "placeholder.png")); err != nil {
 		return fmt.Errorf("writing placeholder icon: %w", err)
 	}
 
