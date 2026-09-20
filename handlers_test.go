@@ -306,6 +306,39 @@ func TestHandleEditObjectPropertyPath(t *testing.T) {
 	}
 }
 
+// TestHandleChildrenObjectPropertyGetsItemPicker confirms only
+// ObjectProperty fields (e.g. BaseData) render the searchable item-picker
+// markup — a plain StrProperty like WorldName must render an ordinary
+// text input, not the picker wrapper, so the picker's JS doesn't attach
+// to fields it can't sensibly autocomplete.
+func TestHandleChildrenObjectPropertyGetsItemPicker(t *testing.T) {
+	s := newTestServer(t)
+
+	id := uploadAndGetSessionID(t, s, "testdata/Player_Local.sav")
+	req := httptest.NewRequest(http.MethodGet, "/session/"+id+"/children?path=Components[1].Data.Data.Slots[0].Items[0]", nil)
+	rec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `class="item-picker"`) {
+		t.Error("BaseData (ObjectProperty) should render the item-picker wrapper")
+	}
+	if !strings.Contains(body, `data-item-picker="1"`) {
+		t.Error("BaseData (ObjectProperty) input should carry data-item-picker")
+	}
+
+	id2 := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")
+	rootReq := httptest.NewRequest(http.MethodGet, "/session/"+id2+"/children?path=", nil)
+	rootRec := httptest.NewRecorder()
+	s.routes().ServeHTTP(rootRec, rootReq)
+	rootBody := rootRec.Body.String()
+	if strings.Contains(rootBody, `data-item-picker`) {
+		t.Error("a plain StrProperty (WorldName) should not get the item-picker wrapper")
+	}
+}
+
 func TestHandleEditBadValue(t *testing.T) {
 	s := newTestServer(t)
 	id := uploadAndGetSessionID(t, s, "testdata/WorldInfo.sav")

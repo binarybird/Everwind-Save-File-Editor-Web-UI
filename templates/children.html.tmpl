@@ -37,7 +37,13 @@
   <span class="type">{{.Type}}</span>
   <form hx-post="/session/{{.SessionID}}/edit" hx-target="#leaf-{{.RowID}}" hx-swap="outerHTML">
     <input type="hidden" name="path" value="{{.Path}}">
-    <input type="text" name="value" value="{{.Preview}}">
+    {{if eq .Type "ObjectProperty"}}
+      <span class="item-picker">
+        <input type="text" name="value" value="{{.Preview}}" data-item-picker="1" autocomplete="off">
+      </span>
+    {{else}}
+      <input type="text" name="value" value="{{.Preview}}">
+    {{end}}
     <button type="submit">Save</button>
   </form>
   {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
