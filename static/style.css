@@ -208,3 +208,23 @@ details[open] > .toggle::before {
   color: #888;
   white-space: nowrap;
 }
+.slot-item-form, .slot-qty-form {
+  display: contents;
+}
+.slot-item-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.slot-qty-input {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 1.8rem;
+  font-size: 0.65rem;
+  border: none;
+  background: transparent;
+  text-align: right;
+  color: #fff;
+}

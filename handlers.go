@@ -133,12 +133,17 @@ func (s *Server) handleEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	path := r.FormValue("path")
 	value := r.FormValue("value")
+	slotPath := r.FormValue("slotPath") // set only by Inventory-tab edit forms; "" for Tree-tab edits
 
 	sess.mu.Lock()
 	defer sess.mu.Unlock()
 
 	p, err := gvas.Lookup(sess.File, path)
 	if err != nil {
+		if slotPath != "" {
+			s.renderSlot(w, sess.File, id, slotPath, http.StatusBadRequest, err.Error())
+			return
+		}
 		w.WriteHeader(http.StatusBadRequest)
 		s.templates.ExecuteTemplate(w, "leafRow", itemView{
 			childItem: childItem{Label: lastPathSegment(path), Path: path, Editable: true, Preview: value},
@@ -158,6 +163,11 @@ func (s *Server) handleEdit(w http.ResponseWriter, r *http.Request) {
 		preview = previewOf(p) // unchanged — applyEdit never partially mutates on a parse error
 	}
 
+	if slotPath != "" {
+		s.renderSlot(w, sess.File, id, slotPath, status, errMsg)
+		return
+	}
+
 	w.WriteHeader(status)
 	s.templates.ExecuteTemplate(w, "leafRow", itemView{
 		childItem: childItem{Label: lastPathSegment(path), Type: p.Type, Path: path, Editable: true, Preview: preview},
@@ -165,6 +175,27 @@ func (s *Server) handleEdit(w http.ResponseWriter, r *http.Request) {
 		RowID:     rowID(path),
 		Error:     errMsg,
 	})
+}
+
+// renderSlot re-renders one Inventory-tab slot from f's current state,
+// used after an edit, add, or remove targeting that slot. status/errMsg
+// let a failed operation still re-render the slot (with its unchanged
+// data) alongside an inline error, matching the Tree tab's leafRow
+// error-handling pattern.
+func (s *Server) renderSlot(w http.ResponseWriter, f *gvas.File, sessionID, slotPath string, status int, errMsg string) {
+	// slotPath always ends bare on a struct-array index (e.g.
+	// "Components[1].Data.Data.Slots[0]"), which gvas.Lookup intentionally
+	// refuses to resolve directly (see treeview.go's propsAt/splitTrailingIndex
+	// docs) — so resolve it the same way the Tree tab does.
+	props, isContainer, err := propsAt(f, slotPath)
+	if err != nil || !isContainer {
+		renderError(w, http.StatusInternalServerError, fmt.Errorf("re-rendering slot %q: %w", slotPath, err))
+		return
+	}
+	sv := buildSlotView(props, slotPath, sessionID, s.itemCatalog)
+	sv.Error = errMsg
+	w.WriteHeader(status)
+	s.templates.ExecuteTemplate(w, "slot", sv)
 }
 
 func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {

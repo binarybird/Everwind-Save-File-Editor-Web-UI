@@ -25,7 +25,19 @@
 <div class="slot{{if not .Occupied}} slot-empty{{end}}" id="slot-{{.RowID}}">
   {{if .Label}}<span class="slot-label">{{.Label}}</span>{{end}}
   {{if .Occupied}}
-    <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}_placeholder.png{{end}}" alt="{{.Name}}" title="{{.Name}}">
+    <form class="slot-item-form" hx-post="/session/{{.SessionID}}/edit" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
+      <input type="hidden" name="path" value="{{.ItemPath}}">
+      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
+      <span class="item-picker">
+        <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}_placeholder.png{{end}}" alt="{{.Name}}" title="{{.Name}}">
+        <input type="text" name="value" value="{{.ObjectPath}}" data-item-picker="1" autocomplete="off" class="slot-item-input">
+      </span>
+    </form>
+    <form class="slot-qty-form" hx-post="/session/{{.SessionID}}/edit" hx-target="#slot-{{.RowID}}" hx-swap="outerHTML">
+      <input type="hidden" name="path" value="{{.QtyPath}}">
+      <input type="hidden" name="slotPath" value="{{.SlotPath}}">
+      <input type="number" name="value" value="{{.Quantity}}" min="0" class="slot-qty-input">
+    </form>
     {{if gt .Quantity 1}}<span class="slot-qty">{{.Quantity}}</span>{{end}}
   {{end}}
   {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
