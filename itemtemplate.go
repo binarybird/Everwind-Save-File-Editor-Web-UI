@@ -172,6 +172,17 @@ func deepCopyProps(props []*gvas.Property) []*gvas.Property {
 		if p.Array != nil {
 			cp.Array = deepCopyArrayValue(p.Array)
 		}
+		if p.Native != nil {
+			v := *p.Native
+			cp.Native = &v
+		}
+		if p.NestedFile != nil {
+			cp.NestedFile = &gvas.File{
+				HeaderByte: p.NestedFile.HeaderByte,
+				Root:       deepCopyProps(p.NestedFile.Root),
+				Footer:     append([]byte(nil), p.NestedFile.Footer...),
+			}
+		}
 		out[i] = &cp
 	}
 	return out
