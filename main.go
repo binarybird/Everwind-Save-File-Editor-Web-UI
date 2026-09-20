@@ -34,7 +34,16 @@ func main() {
 		log.Fatalf("parsing templates: %v", err)
 	}
 
-	srv := NewServer(NewSessionStore(), tmpl)
+	itemsData, err := embeddedStaticFS.ReadFile("static/items.json")
+	if err != nil {
+		log.Fatalf("reading items.json: %v", err)
+	}
+	catalog, err := loadItemCatalog(itemsData)
+	if err != nil {
+		log.Fatalf("parsing items.json: %v", err)
+	}
+
+	srv := NewServer(NewSessionStore(), tmpl, catalog)
 
 	log.Printf("listening on %s", *addr)
 	log.Fatal(http.ListenAndServe(*addr, srv.routes()))

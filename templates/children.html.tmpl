@@ -52,5 +52,11 @@
 
 {{define "uploadResponse"}}
 <div id="download-area" hx-swap-oob="true"><a href="/session/{{.SessionID}}/download">Download edited save</a></div>
-{{template "children" .}}
+<div class="tabs">
+  <button type="button" class="tab-btn" hx-get="/session/{{.SessionID}}/children?path=" hx-target="#tab-content" hx-swap="innerHTML">Tree</button>
+  <button type="button" class="tab-btn" hx-get="/session/{{.SessionID}}/inventory" hx-target="#tab-content" hx-swap="innerHTML">Inventory</button>
+</div>
+<div id="tab-content">
+  {{template "children" .}}
+</div>
 {{end}}

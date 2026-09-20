@@ -28,7 +28,15 @@ func newTestServer(t *testing.T) *Server {
 		t.Fatalf("static assets: %v", err)
 	}
 	staticFS = sub
-	return NewServer(NewSessionStore(), tmpl)
+	itemsData, err := embeddedStaticFS.ReadFile("static/items.json")
+	if err != nil {
+		t.Fatalf("reading items.json: %v", err)
+	}
+	catalog, err := loadItemCatalog(itemsData)
+	if err != nil {
+		t.Fatalf("loadItemCatalog: %v", err)
+	}
+	return NewServer(NewSessionStore(), tmpl, catalog)
 }
 
 func TestHandleIndex(t *testing.T) {

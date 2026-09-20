@@ -1,0 +1,33 @@
+{{define "inventory"}}
+<div class="inventory-grid">
+  <section class="backpack">
+    <h3>Backpack</h3>
+    <div class="slot-grid">
+      {{range .Backpack}}{{template "slot" .}}{{end}}
+    </div>
+  </section>
+  <section class="hotbar">
+    <h3>Hotbar</h3>
+    <div class="slot-grid hotbar-row">
+      {{range .Hotbar}}{{template "slot" .}}{{end}}
+    </div>
+  </section>
+  <section class="equipment">
+    <h3>Equipment</h3>
+    <div class="equipment-slots">
+      {{range .Equipment}}{{template "slot" .}}{{end}}
+    </div>
+  </section>
+</div>
+{{end}}
+
+{{define "slot"}}
+<div class="slot{{if not .Occupied}} slot-empty{{end}}" id="slot-{{.RowID}}">
+  {{if .Label}}<span class="slot-label">{{.Label}}</span>{{end}}
+  {{if .Occupied}}
+    <img class="slot-icon" src="/static/icons/{{if .IconFile}}{{.IconFile}}{{else}}_placeholder.png{{end}}" alt="{{.Name}}" title="{{.Name}}">
+    {{if gt .Quantity 1}}<span class="slot-qty">{{.Quantity}}</span>{{end}}
+  {{end}}
+  {{if .Error}}<span class="error">{{.Error}}</span>{{end}}
+</div>
+{{end}}

@@ -13,12 +13,13 @@ import (
 
 // Server holds the shared dependencies every handler needs.
 type Server struct {
-	store     *SessionStore
-	templates *template.Template
+	store       *SessionStore
+	templates   *template.Template
+	itemCatalog map[string]catalogEntry
 }
 
-func NewServer(store *SessionStore, templates *template.Template) *Server {
-	return &Server{store: store, templates: templates}
+func NewServer(store *SessionStore, templates *template.Template, itemCatalog map[string]catalogEntry) *Server {
+	return &Server{store: store, templates: templates, itemCatalog: itemCatalog}
 }
 
 func (s *Server) routes() http.Handler {
@@ -29,6 +30,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /session/{id}/children", s.handleChildren)
 	mux.HandleFunc("POST /session/{id}/edit", s.handleEdit)
 	mux.HandleFunc("GET /session/{id}/download", s.handleDownload)
+	mux.HandleFunc("GET /session/{id}/inventory", s.handleInventory)
 	return mux
 }
 
@@ -184,6 +186,25 @@ func (s *Server) handleDownload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", `attachment; filename="edited.sav"`)
 	w.Write(data)
+}
+
+func (s *Server) handleInventory(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	sess, ok := s.store.Get(id)
+	if !ok {
+		renderSessionNotFound(w)
+		return
+	}
+	sess.mu.RLock()
+	view, err := BuildInventoryGridView(sess.File, id, s.itemCatalog)
+	sess.mu.RUnlock()
+	if err != nil {
+		renderError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if err := s.templates.ExecuteTemplate(w, "inventory", view); err != nil {
+		log.Printf("rendering inventory: %v", err)
+	}
 }
 
 // applyEdit parses value against p's existing scalar kind and applies it,

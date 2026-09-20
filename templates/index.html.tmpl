@@ -11,7 +11,7 @@
 </head>
 <body>
   <h1>Skyverse Save Viewer</h1>
-  <form id="upload-form" hx-post="/upload" hx-target="#tree" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+  <form id="upload-form" hx-post="/upload" hx-target="#app" hx-swap="innerHTML" hx-encoding="multipart/form-data">
     <div id="upload-zone" class="upload-zone">
       <p>Drop a <code>.sav</code> file here, or <label for="savefile" class="browse-link">browse…</label></p>
       <input type="file" id="savefile" name="savefile" accept=".sav" required>
@@ -19,7 +19,7 @@
     <button type="submit">Upload</button>
   </form>
   <div id="download-area"></div>
-  <div id="tree"></div>
+  <div id="app"></div>
 </body>
 </html>
 {{end}}
