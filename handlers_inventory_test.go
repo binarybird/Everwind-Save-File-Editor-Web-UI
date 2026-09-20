@@ -55,8 +55,8 @@ func TestHandleEditFromInventoryTabRerendersSlot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath = view.Backpack[0].SlotPath
-	itemPath := view.Backpack[0].ItemPath
+	slotPath = view.Hotbar[0].SlotPath
+	itemPath := view.Hotbar[0].ItemPath
 
 	form := url.Values{}
 	form.Set("path", itemPath)
@@ -111,7 +111,7 @@ func TestHandleSlotRemove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Backpack[0].SlotPath // occupied (RepairKit) in testdata
+	slotPath := view.Hotbar[0].SlotPath // occupied (RepairKit) in testdata
 
 	form := url.Values{}
 	form.Set("slotPath", slotPath)
@@ -133,8 +133,8 @@ func TestHandleSlotRemove(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView after remove: %v", err)
 	}
-	if view2.Backpack[0].Occupied {
-		t.Error("Backpack[0] still Occupied=true after remove")
+	if view2.Hotbar[0].Occupied {
+		t.Error("Hotbar[0] still Occupied=true after remove")
 	}
 }
 
@@ -146,7 +146,7 @@ func TestHandleSlotRemoveAlreadyEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Hotbar[8].SlotPath // empty in testdata
+	slotPath := view.Backpack[53].SlotPath // empty in testdata
 
 	form := url.Values{}
 	form.Set("slotPath", slotPath)
@@ -170,7 +170,7 @@ func TestHandleSlotAdd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Hotbar[8].SlotPath // empty in testdata
+	slotPath := view.Backpack[53].SlotPath // empty in testdata
 	itemPath := "/Game/Data/Items/Resources_2500-2999/2553_IDA_RepairKit.2553_IDA_RepairKit"
 
 	form := url.Values{}
@@ -191,11 +191,11 @@ func TestHandleSlotAdd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView after add: %v", err)
 	}
-	if !view2.Hotbar[8].Occupied {
-		t.Fatal("Hotbar[8] still Occupied=false after add")
+	if !view2.Backpack[53].Occupied {
+		t.Fatal("Backpack[53] still Occupied=false after add")
 	}
-	if view2.Hotbar[8].ObjectPath != itemPath {
-		t.Errorf("Hotbar[8].ObjectPath = %q, want %q", view2.Hotbar[8].ObjectPath, itemPath)
+	if view2.Backpack[53].ObjectPath != itemPath {
+		t.Errorf("Backpack[53].ObjectPath = %q, want %q", view2.Backpack[53].ObjectPath, itemPath)
 	}
 }
 
@@ -207,7 +207,7 @@ func TestHandleSlotAddUnknownItem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Hotbar[8].SlotPath
+	slotPath := view.Backpack[53].SlotPath
 
 	form := url.Values{}
 	form.Set("slotPath", slotPath)
@@ -239,7 +239,7 @@ func TestHandleSlotAddRoundTripsThroughDownload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Hotbar[8].SlotPath // empty in testdata
+	slotPath := view.Backpack[53].SlotPath // empty in testdata
 	itemPath := "/Game/Data/Items/Resources_2500-2999/2553_IDA_RepairKit.2553_IDA_RepairKit"
 
 	form := url.Values{}
@@ -295,7 +295,7 @@ func TestHandleSlotRemoveRoundTripsThroughDownload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Backpack[0].SlotPath // occupied (RepairKit) in testdata
+	slotPath := view.Hotbar[0].SlotPath // occupied (RepairKit) in testdata
 
 	form := url.Values{}
 	form.Set("slotPath", slotPath)
@@ -351,7 +351,7 @@ func TestHandleSlotAddAlreadyOccupied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slotPath := view.Backpack[0].SlotPath // occupied
+	slotPath := view.Hotbar[0].SlotPath // occupied
 
 	form := url.Values{}
 	form.Set("slotPath", slotPath)

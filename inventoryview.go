@@ -29,8 +29,8 @@ type slotView struct {
 // InventoryGridView is what the "inventory" template renders.
 type InventoryGridView struct {
 	SessionID string
-	Backpack  []slotView // 54 elements: the Inventory component's Slots[0..53]
-	Hotbar    []slotView // 9 elements: Slots[54..62]
+	Backpack  []slotView // 54 elements: the Inventory component's Slots[9..62]
+	Hotbar    []slotView // 9 elements: Slots[0..8]
 	Equipment []slotView // 8 elements, in equipmentSlotLabels order
 }
 
@@ -75,14 +75,18 @@ func BuildInventoryGridView(f *gvas.File, sessionID string, catalog map[string]c
 		return nil, fmt.Errorf("equipment Slots: expected 8 elements, got %d", arrayLen(eqSlots.Array))
 	}
 
+	// Confirmed by comparing the web grid against a real in-game inventory
+	// screenshot: Slots[] is hotbar-first, not backpack-first as originally
+	// assumed -- Slots[0..8] is the hotbar row, Slots[9..62] is the 9x6
+	// backpack grid.
 	view := &InventoryGridView{SessionID: sessionID}
-	for i := 0; i < 54; i++ {
-		path := fmt.Sprintf("%s[%d]", invSlotsPath, i)
-		view.Backpack = append(view.Backpack, buildSlotView(invSlots.Array.Structs[i], path, sessionID, catalog))
-	}
-	for i := 54; i < 63; i++ {
+	for i := 0; i < 9; i++ {
 		path := fmt.Sprintf("%s[%d]", invSlotsPath, i)
 		view.Hotbar = append(view.Hotbar, buildSlotView(invSlots.Array.Structs[i], path, sessionID, catalog))
+	}
+	for i := 9; i < 63; i++ {
+		path := fmt.Sprintf("%s[%d]", invSlotsPath, i)
+		view.Backpack = append(view.Backpack, buildSlotView(invSlots.Array.Structs[i], path, sessionID, catalog))
 	}
 	for i := 0; i < 8; i++ {
 		path := fmt.Sprintf("%s[%d]", eqSlotsPath, i)

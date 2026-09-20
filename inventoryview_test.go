@@ -26,7 +26,7 @@ func TestBuildInventoryGridViewShape(t *testing.T) {
 	}
 }
 
-func TestBuildInventoryGridViewBackpackSlot0IsRepairKit(t *testing.T) {
+func TestBuildInventoryGridViewHotbarSlot0IsRepairKit(t *testing.T) {
 	f, err := gvas.Unmarshal(readTestdata(t, "Player_Local.sav"))
 	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
@@ -37,28 +37,32 @@ func TestBuildInventoryGridViewBackpackSlot0IsRepairKit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	slot0 := view.Backpack[0]
+	// Slots[0] is the hotbar's first slot, not the backpack's -- confirmed
+	// by comparing the rendered grid against a real in-game inventory
+	// screenshot: Slots[] is hotbar-first (indices 0-8), then the 9x6
+	// backpack grid (indices 9-62).
+	slot0 := view.Hotbar[0]
 	if !slot0.Occupied {
-		t.Fatal("Backpack[0]: expected Occupied=true")
+		t.Fatal("Hotbar[0]: expected Occupied=true")
 	}
 	if slot0.Name != "Repair Kit" {
-		t.Errorf("Backpack[0].Name = %q, want %q", slot0.Name, "Repair Kit")
+		t.Errorf("Hotbar[0].Name = %q, want %q", slot0.Name, "Repair Kit")
 	}
 	if slot0.IconFile != "repairkit.png" {
-		t.Errorf("Backpack[0].IconFile = %q, want %q", slot0.IconFile, "repairkit.png")
+		t.Errorf("Hotbar[0].IconFile = %q, want %q", slot0.IconFile, "repairkit.png")
 	}
 	if slot0.ObjectPath != wantPath {
-		t.Errorf("Backpack[0].ObjectPath = %q, want %q", slot0.ObjectPath, wantPath)
+		t.Errorf("Hotbar[0].ObjectPath = %q, want %q", slot0.ObjectPath, wantPath)
 	}
 	if slot0.Quantity != 57 {
-		t.Errorf("Backpack[0].Quantity = %d, want 57", slot0.Quantity)
+		t.Errorf("Hotbar[0].Quantity = %d, want 57", slot0.Quantity)
 	}
 	if slot0.ItemPath != slot0.ArrayPath+"[0].BaseData" {
-		t.Errorf("Backpack[0].ItemPath = %q, want %q", slot0.ItemPath, slot0.ArrayPath+"[0].BaseData")
+		t.Errorf("Hotbar[0].ItemPath = %q, want %q", slot0.ItemPath, slot0.ArrayPath+"[0].BaseData")
 	}
 }
 
-func TestBuildInventoryGridViewHotbarLastSlotIsEmpty(t *testing.T) {
+func TestBuildInventoryGridViewBackpackLastSlotIsEmpty(t *testing.T) {
 	f, err := gvas.Unmarshal(readTestdata(t, "Player_Local.sav"))
 	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
@@ -67,12 +71,14 @@ func TestBuildInventoryGridViewHotbarLastSlotIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildInventoryGridView: %v", err)
 	}
-	last := view.Hotbar[8] // Slots[62] in the save, confirmed empty in testdata
+	// Slots[62] (confirmed empty in testdata) is now Backpack[53] (the
+	// last backpack slot), since Backpack covers Slots[9..62].
+	last := view.Backpack[53]
 	if last.Occupied {
-		t.Error("Hotbar[8] (Slots[62]): expected Occupied=false")
+		t.Error("Backpack[53] (Slots[62]): expected Occupied=false")
 	}
 	if last.ItemPath != "" {
-		t.Errorf("Hotbar[8].ItemPath = %q, want empty for an unoccupied slot", last.ItemPath)
+		t.Errorf("Backpack[53].ItemPath = %q, want empty for an unoccupied slot", last.ItemPath)
 	}
 }
 
